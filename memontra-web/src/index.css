@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #1C7B7F;
+    --color-secondary: #EFBF04;
+    --color-universal: #FFFFFF;
+    --color-dark: #111111;
+
+    /* Daftarkan font Google Sans sebagai font-sans utama Tailwind */
+    --font-sans: "Google Sans", sans-serif;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+.particles-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
