@@ -1,14 +1,13 @@
-// src/pages/Booking.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from '../lib/axios';
+import Navbar from '../components/layouts/Navbar';
+import Footer from '../components/layouts/Footer';
 
 const Booking = () => {
-    const { user, logout, resendVerification } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
-
-    const [resendStatus, setResendStatus] = useState({ loading: false, message: '', isSuccess: false });
 
     // State untuk form booking
     const [formData, setFormData] = useState({
@@ -21,15 +20,27 @@ const Booking = () => {
         notes: ''
     });
 
+    // Injeksi Midtrans Snap.js
+    useEffect(() => {
+        const midtransScriptUrl = 'https://app.sandbox.midtrans.com/snap/snap.js';
+        const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY || 'SB-Mid-client-YOUR_KEY_HERE';
+
+        let scriptTag = document.createElement('script');
+        scriptTag.src = midtransScriptUrl;
+        scriptTag.setAttribute('data-client-key', clientKey);
+        
+        document.body.appendChild(scriptTag);
+        
+        return () => {
+            if(document.body.contains(scriptTag)) {
+                document.body.removeChild(scriptTag);
+            }
+        }
+    }, []);
+
     const handleLogout = async () => {
         await logout();
         navigate('/login');
-    };
-
-    const handleResendEmail = async () => {
-        setResendStatus({ loading: true, message: '', isSuccess: false });
-        const result = await resendVerification();
-        setResendStatus({ loading: false, message: result.message, isSuccess: result.success });
     };
 
     const handleInputChange = (e) => {
@@ -46,14 +57,32 @@ const Booking = () => {
         try {
             // Tembak endpoint API Laravel
             const response = await axios.post('/api/bookings', formData);
+            const snapToken = response.data.snap_token;
 
-            // Jika berhasil
-            alert('Mantap! Pesanan berhasil dibuat. Tim kami akan segera menghubungi kamu.');
-
-            // Kosongkan form setelah sukses (opsional)
-            setFormData({
-                package: '', date: '', time: '', city: 'Bandung', address: '', eventType: 'Pernikahan'
-            });
+            if (snapToken) {
+                // Munculkan popup dari Midtrans
+                window.snap.pay(snapToken, {
+                    onSuccess: function(result){
+                        alert("Pembayaran berhasil!");
+                        navigate('/riwayat-booking');
+                    },
+                    onPending: function(result){
+                        alert("Menunggu pembayaran Anda!");
+                        navigate('/riwayat-booking');
+                    },
+                    onError: function(result){
+                        alert("Pembayaran gagal!");
+                        navigate('/riwayat-booking');
+                    },
+                    onClose: function(){
+                        alert("Anda menutup popup pembayaran sebelum menyelesaikannya.");
+                        navigate('/riwayat-booking');
+                    }
+                });
+            } else {
+                alert('Pesanan berhasil dibuat, tapi gagal memuat proses pembayaran.');
+                navigate('/riwayat-booking');
+            }
 
         } catch (error) {
             console.error("Gagal melakukan booking:", error);
@@ -63,48 +92,43 @@ const Booking = () => {
         }
     };
 
-    // Cek verifikasi (Untuk testing UI, kamu bisa ubah ini sementara jadi "true" kalau mau lihat formnya)
-    const isEmailVerified = user?.email_verified_at !== null;
+    const packagesList = [
+        {
+            name: 'Silver',
+            duration: '2 Jam',
+            price: 'Rp 600.000',
+            benefits: ['Unlimited Foto', 'Custom Template 1 Desain', 'Softcopy via GDrive', '1 Fotografer & 1 Asisten']
+        },
+        {
+            name: 'Gold',
+            duration: '4 Jam',
+            price: 'Rp 1.000.000',
+            benefits: ['Unlimited Foto & Cetak', 'Custom Template 2 Desain', 'Scrapbook / Guest Book', 'Softcopy Flashdisk', 'Props & Aksesoris Unik']
+        },
+        {
+            name: 'Platinum',
+            duration: '6 Jam',
+            price: 'Rp 1.500.000',
+            benefits: ['Layanan Maksimal Seharian', 'Custom Backdrop Premium', 'Frame Foto Eksklusif', 'Scrapbook Premium', 'Video Highlight 1 Menit']
+        }
+    ];
 
     return (
-        <div className="min-h-screen bg-primary/5 p-4 sm:p-8 font-poppins pb-20">
-            <div className="max-w-5xl mx-auto">
+        <div className="flex flex-col min-h-screen bg-primary/5 font-poppins">
+            <Navbar />
+            
+            <main className="grow pt-32 pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full relative z-10">
 
                 {/* Header Dashboard */}
                 <div className="bg-universal rounded-3xl shadow-sm p-6 sm:p-8 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-gray-100">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-dark">Dashboard Pemesanan</h1>
-                        <p className="text-dark/60 mt-1">Halo, <span className="font-semibold text-primary">{user?.name || 'Klien'}</span>! Mari atur acaramu.</p>
+                        <p className="text-dark/60 mt-1">Halo, <span className="font-semibold text-primary">{user?.name || 'Klien'}</span>! Mari atur pesanan photobooth acaramu.</p>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="bg-red-50 text-red-600 hover:bg-red-100 px-6 py-2 rounded-xl font-semibold transition-colors w-full sm:w-auto text-sm"
-                    >
-                        Keluar Akun
-                    </button>
                 </div>
 
-                {!isEmailVerified ? (
-                    /* Tampilan Jika Belum Verifikasi */
-                    <div className="bg-universal rounded-3xl shadow-sm p-8 text-center border border-gray-100">
-                        <div className="w-16 h-16 bg-secondary/20 text-secondary rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✉️</div>
-                        <h2 className="text-xl font-bold text-dark mb-2">Verifikasi Email Kamu Dulu Yuk!</h2>
-                        <p className="text-dark/70 mb-6 max-w-md mx-auto text-sm">
-                            Kami telah mengirimkan link verifikasi ke <span className="font-semibold">{user?.email}</span>. Silakan klik link tersebut untuk mulai memesan.
-                        </p>
-                        {resendStatus.message && (
-                            <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${resendStatus.isSuccess ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                                {resendStatus.message}
-                            </div>
-                        )}
-                        <button onClick={handleResendEmail} disabled={resendStatus.loading} className="bg-primary text-universal font-semibold py-3 px-6 rounded-xl hover:bg-opacity-90 transition shadow-md">
-                            {resendStatus.loading ? 'Mengirim...' : 'Kirim Ulang Email Verifikasi'}
-                        </button>
-                    </div>
-                ) : (
-
-                    /* Tampilan Form Booking Utama */
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Tampilan Form Booking Utama */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                         {/* Kiri: Form Input (Porsi lebih besar) */}
                         <div className="lg:col-span-2 bg-universal rounded-3xl shadow-sm p-6 sm:p-8 border border-gray-100">
@@ -115,20 +139,38 @@ const Booking = () => {
                                 {/* 1. Pemilihan Paket */}
                                 <div>
                                     <label className="block text-sm font-semibold text-dark mb-3">1. Pilih Paket Photobooth</label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        {['Silver', 'Gold', 'Platinum'].map((pkg) => (
-                                            <div
-                                                key={pkg}
-                                                onClick={() => setFormData({ ...formData, package: pkg })}
-                                                className={`cursor-pointer rounded-2xl p-4 border-2 transition-all duration-300 text-center ${formData.package === pkg
-                                                    ? 'border-primary bg-primary/10 shadow-md'
-                                                    : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
-                                                    }`}
-                                            >
-                                                <h3 className={`font-bold ${formData.package === pkg ? 'text-primary' : 'text-dark'}`}>{pkg}</h3>
-                                                <p className="text-xs text-dark/60 mt-1">{pkg === 'Silver' ? '2 Jam' : pkg === 'Gold' ? '4 Jam' : '6 Jam'}</p>
-                                            </div>
-                                        ))}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+                                        {packagesList.map((pkg) => {
+                                            const isSelected = formData.package === pkg.name;
+                                            return (
+                                                <div
+                                                    key={pkg.name}
+                                                    onClick={() => setFormData({ ...formData, package: isSelected ? '' : pkg.name })}
+                                                    className={`cursor-pointer rounded-2xl border-2 transition-all duration-300 overflow-hidden ${isSelected
+                                                        ? 'border-primary bg-primary/5 shadow-md'
+                                                        : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div className="p-4 text-center">
+                                                        <h3 className={`font-bold ${isSelected ? 'text-primary' : 'text-dark'}`}>{pkg.name}</h3>
+                                                        <p className="text-xs text-dark/60 mt-1">{pkg.duration}</p>
+                                                    </div>
+                                                    
+                                                    {/* Expandable Benefits */}
+                                                    <div className={`transition-all duration-300 ease-in-out ${isSelected ? 'max-h-[300px] opacity-100 pb-4' : 'max-h-0 opacity-0'} px-4 overflow-hidden`}>
+                                                        <div className="h-px w-full bg-primary/20 mb-3"></div>
+                                                        <p className="text-primary font-bold text-center mb-2">{pkg.price}</p>
+                                                        <ul className="space-y-1.5">
+                                                            {pkg.benefits.map((benefit, i) => (
+                                                                <li key={i} className="text-xs text-dark/70 flex items-start gap-1.5 text-left leading-relaxed">
+                                                                    <span className="text-primary shrink-0">✓</span> {benefit}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -255,8 +297,8 @@ const Booking = () => {
                         </div>
 
                     </div>
-                )}
-            </div>
+            </main>
+            <Footer />
         </div>
     );
 };

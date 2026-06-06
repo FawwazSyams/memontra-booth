@@ -17,7 +17,10 @@ class Booking extends Model
         'city',
         'event_type',
         'address',
-        'status'
+        'status',
+        'total_price',
+        'payment_status',
+        'snap_token'
     ];
 
     // Relasi balik ke User

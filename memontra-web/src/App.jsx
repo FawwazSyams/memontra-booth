@@ -7,6 +7,9 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Booking from './pages/Booking';
 
+import RiwayatBooking from './pages/RiwayatBooking';
+import Photobooth from './pages/Photobooth';
+
 function App() {
   return (
     <BrowserRouter>
@@ -22,6 +25,12 @@ function App() {
               <Booking />
             </ProtectedRoute>
           } />
+          <Route path="/riwayat-booking" element={
+            <ProtectedRoute>
+              <RiwayatBooking />
+            </ProtectedRoute>
+          } />
+          <Route path="/photobooth" element={<Photobooth />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

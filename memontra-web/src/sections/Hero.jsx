@@ -98,8 +98,8 @@ const Hero = () => {
                         <Link to="/booking" className="bg-primary text-universal px-10 py-4 rounded-full font-bold transition-all duration-300 hover:bg-opacity-90 hover:-translate-y-1 shadow-lg shadow-primary/20 text-md">
                             Booking Now
                         </Link>
-                        <a href="#galeri" className="bg-universal border-2 border-primary text-primary px-10 py-4 rounded-full font-bold transition-all duration-300 hover:bg-primary hover:text-universal hover:-translate-y-1 text-md flex items-center justify-center gap-2">
-                            Lihat Galeri <span className="text-lg">↓</span>
+                        <a href="/photobooth" className="bg-universal border-2 border-primary text-primary px-10 py-4 rounded-full font-bold transition-all duration-300 hover:bg-primary hover:text-universal hover:-translate-y-1 text-md flex items-center justify-center gap-2">
+                            Coba Photobooth Online
                         </a>
                     </div>
                 </motion.div>
