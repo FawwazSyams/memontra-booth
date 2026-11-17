@@ -1,0 +1,40 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        working-directory: memontra_booth
+        run: flutter pub get
+
+      - name: Build Windows Executable
+        working-directory: memontra_booth
+        run: flutter build windows --release
+
+      - name: Archive Windows Release
+        working-directory: memontra_booth/build/windows/x64/runner/Release
+        run: |
+          powershell Compress-Archive -Path * -DestinationPath ../../../../../memontra-booth-windows.zip
+
+      - name: Upload Windows App Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: memontra-booth-windows
+          path: memontra-booth-windows.zip
+          retention-days: 14
