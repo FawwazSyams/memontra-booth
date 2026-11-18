@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Windows Desktop Release
@@ -34,9 +37,47 @@ jobs:
         working-directory: memontra_booth
         run: flutter build windows --release
 
+      - name: Bundle Visual C++ Runtime & Dependencies
+        shell: pwsh
+        run: |
+          $releaseDir = "memontra_booth/build/windows/x64/runner/Release"
+          Write-Host "Target Release Directory: $releaseDir"
+
+          # 1. Copy MSVC CRT runtime DLLs (vcruntime140.dll, vcruntime140_1.dll, msvcp140.dll, etc.)
+          $crtDlls = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT\*.dll"
+          if ($crtDlls) {
+            Write-Host "Found $($crtDlls.Count) CRT DLLs. Copying to release directory..."
+            Copy-Item $crtDlls.FullName -Destination $releaseDir -Force
+          }
+
+          # 2. Copy official vc_redist.x64.exe installer into the folder as an offline backup
+          $redist = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\*\vc_redist.x64.exe" | Select-Object -First 1
+          if ($redist) {
+            Write-Host "Found $($redist.FullName). Copying as vc_redist.x64.exe..."
+            Copy-Item $redist.FullName -Destination "$releaseDir\vc_redist.x64.exe" -Force
+          }
+
+          Write-Host "Contents of Release directory:"
+          Get-ChildItem $releaseDir | Select-Object Name, Length
+
+      - name: Create Zip Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "memontra_booth/build/windows/x64/runner/Release/*" -DestinationPath "memontra-booth-windows-v1.0.0.zip" -Force
+          Write-Host "Zip created successfully:"
+          Get-Item memontra-booth-windows-v1.0.0.zip | Select-Object Name, Length
+
       - name: Upload Windows Release Artifact
         uses: actions/upload-artifact@v4
         with:
           name: memontra-booth-windows
           path: memontra_booth/build/windows/x64/runner/Release/
           retention-days: 14
+
+      - name: Publish to GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          Write-Host "Publishing to GitHub Releases v1.0.0..."
+          gh release create v1.0.0 memontra-booth-windows-v1.0.0.zip --clobber --title "Memontra Booth Windows v1.0.0 (Standalone)" --notes "Official standalone Windows release for Memontra Booth kiosk. Includes all bundled Visual C++ runtimes and offline installer. Ready to run directly on Windows 10/11."
