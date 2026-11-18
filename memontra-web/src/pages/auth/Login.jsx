@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext'; // Import context yang sudah dibuat
+import Logo from '../../assets/images/logo-booth-second.png';
 
 const Login = () => {
     // State untuk menangkap inputan user
@@ -27,11 +28,15 @@ const Login = () => {
         setErrors({}); // Kosongkan error sebelumnya
 
         // Panggil API ke Laravel
-        const success = await login({ email, password, setErrors });
+        const loggedInUser = await login({ email, password, setErrors });
 
-        if (success) {
+        if (loggedInUser) {
             // Jika login berhasil, arahkan ke halaman booking
-            navigate('/');
+            if (loggedInUser.is_admin) {
+                navigate('/admin');
+            } else {
+                navigate('/');
+            }
         }
 
         setIsSubmitting(false);
@@ -43,11 +48,17 @@ const Login = () => {
 
                 <div className="text-center mb-8">
                     <Link to="/" className="text-2xl font-bold text-primary inline-block mb-2">
-                        MEMONTRA <span className="text-secondary">BOOTH</span>
+                        <img src={Logo} className="h-12 mx-auto" alt="Memontra Logo" />
                     </Link>
                     <h2 className="text-2xl font-bold text-dark mt-4">Selamat Datang Kembali!</h2>
                     <p className="text-dark/60 text-sm mt-2">Silakan login untuk melanjutkan booking.</p>
                 </div>
+
+                {errors.general && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl text-center">
+                        {errors.general[0]}
+                    </div>
+                )}
 
                 {/* Tambahkan onSubmit ke form */}
                 <form onSubmit={handleSubmit} className="space-y-5">

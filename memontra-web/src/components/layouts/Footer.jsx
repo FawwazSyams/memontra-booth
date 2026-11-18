@@ -1,5 +1,6 @@
 import React from 'react';
 import logo from '../../assets/images/logo-booth.png';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaWhatsapp } from 'react-icons/fa';
 
 const Footer = () => {
     return (
@@ -25,7 +26,7 @@ const Footer = () => {
                             <li><a href="#fitur" className="hover:text-secondary transition-colors">Keunggulan Kami</a></li>
                             <li><a href="#paket" className="hover:text-secondary transition-colors">Paket Harga</a></li>
                             <li><a href="#galeri" className="hover:text-secondary transition-colors">Galeri Momen</a></li>
-                            <li><a href="#faq" className="hover:text-secondary transition-colors">Tanya Jawab (FAQ)</a></li>
+                            <li><a href="#kontak" className="hover:text-secondary transition-colors">Hubungi Kami</a></li>
                         </ul>
                     </div>
 
@@ -34,16 +35,16 @@ const Footer = () => {
                         <h3 className="text-lg font-semibold text-secondary">Hubungi Kami</h3>
                         <ul className="space-y-3 text-sm text-universal/80">
                             <li className="flex items-start space-x-3">
-                                <span className="text-secondary">📍</span>
+                                <span className="text-secondary"><FaMapMarkerAlt /></span>
                                 <span>Area Layanan: Bandung Raya & Cimahi</span>
                             </li>
                             <li className="flex items-center space-x-3">
-                                <span className="text-secondary">📞</span>
-                                <span>+62 812-XXXX-XXXX (WhatsApp)</span>
+                                <span className="text-secondary"><FaWhatsapp /></span>
+                                <span><a href="https://wa.me/6288218987242?text=Halo%20Memontra%20Booth,%20saya%20tertarik%20dengan%20layanan%20photobooth-nya.%20Boleh%20minta%20info%20lebih%20lanjut?" target="_blank" rel="noopener noreferrer">+62 882-1898-7242</a></span>
                             </li>
                             <li className="flex items-center space-x-3">
-                                <span className="text-secondary">✉️</span>
-                                <span>halo@memontrabooth.com</span>
+                                <span className="text-secondary"><FaEnvelope /></span>
+                                <span><a href="mailto:memontrabooth@gmail.com" target="_blank" rel="noopener noreferrer">memontrabooth@gmail.com</a></span>
                             </li>
                         </ul>
                     </div>
@@ -56,7 +57,7 @@ const Footer = () => {
                         &copy; {new Date().getFullYear()} Memontra Booth. All rights reserved.
                     </p>
                     <p>
-                        Powered by <span className="text-universal font-semibold hover:text-secondary cursor-pointer transition-colors">SyamsDev</span>
+                        Powered by <span className="text-universal font-semibold hover:text-secondary cursor-pointer transition-colors"><a href="https://syamsdev.id">SyamsDev</a></span>
                     </p>
                 </div>
 

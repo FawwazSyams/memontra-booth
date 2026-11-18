@@ -3,6 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
+// eslint-disable-next-line no-unused-vars
 import { motion, useScroll, useTransform } from 'framer-motion';
 import Typewriter from 'typewriter-effect';
 import Antigravity from '../components/Antigravity';
@@ -34,7 +35,7 @@ const Hero = () => {
                 {/* AREA ANTIGRAVITY */}
                 <div className="absolute inset-0 w-full h-full z-0">
                     <Antigravity
-                        count={300}
+                        count={100}
                         magnetRadius={6}
                         ringRadius={7}
                         waveSpeed={0.4}
@@ -52,15 +53,11 @@ const Hero = () => {
                     />
                 </div>
 
-                {/* Dekorasi Awan Blur */}
-                <motion.div
-                    animate={{ x: [0, 40, -20, 0], y: [0, -30, 20, 0], scale: [1, 1.1, 0.9, 1] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+                {/* Dekorasi Awan Blur - Dibuat statis untuk menghemat performa (menghindari frame drop) */}
+                <div
                     className="absolute top-1/4 right-0 w-[30rem] md:w-[40rem] h-[30rem] md:h-[40rem] bg-primary/5 rounded-full blur-3xl -z-10"
                 />
-                <motion.div
-                    animate={{ x: [0, -30, 30, 0], y: [0, 40, -20, 0], scale: [1, 1.2, 0.8, 1] }}
-                    transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+                <div
                     className="absolute bottom-1/4 left-0 w-[20rem] md:w-[30rem] h-[20rem] md:h-[30rem] bg-secondary/5 rounded-full blur-3xl -z-10"
                 />
 
@@ -96,11 +93,11 @@ const Hero = () => {
                     {/* Tombol CTA */}
                     <div data-aos="fade-up" data-aos-delay="600" className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 pointer-events-auto">
                         <Link to="/booking" className="bg-primary text-universal px-10 py-4 rounded-full font-bold transition-all duration-300 hover:bg-opacity-90 hover:-translate-y-1 shadow-lg shadow-primary/20 text-md">
-                            Booking Now
+                            Booking Sekarang
                         </Link>
-                        <a href="/photobooth" className="bg-universal border-2 border-primary text-primary px-10 py-4 rounded-full font-bold transition-all duration-300 hover:bg-primary hover:text-universal hover:-translate-y-1 text-md flex items-center justify-center gap-2">
+                        {/*<Link to="/photobooth" className="bg-universal border-2 border-primary text-primary px-10 py-4 rounded-full font-bold transition-all duration-300 hover:bg-primary hover:text-universal hover:-translate-y-1 text-md flex items-center justify-center gap-2">
                             Coba Photobooth Online
-                        </a>
+                        </Link>*/}
                     </div>
                 </motion.div>
             </div>

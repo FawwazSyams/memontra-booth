@@ -46,6 +46,7 @@ const Navbar = () => {
         { name: 'Beranda', href: '/' },
         { name: 'Booking', href: '/booking' },
         { name: 'Riwayat', href: '/riwayat-booking' },
+        ...(user?.is_admin ? [{ name: 'Admin', href: '/admin' }] : []),
     ];
 
     return (
@@ -104,10 +105,10 @@ const Navbar = () => {
                                     className="flex items-center gap-3 focus:outline-none bg-universal hover:bg-gray-50 border border-gray-100 rounded-full pl-4 pr-1.5 py-1.5 transition-all shadow-sm hover:shadow"
                                 >
                                     <span className="font-semibold text-dark text-sm max-w-[120px] truncate">
-                                        Hi, {user.name.split(' ')[0]}
+                                        Hi, {user?.name ? user.name.split(' ')[0] : 'Klien'}
                                     </span>
                                     <div className="w-9 h-9 bg-linear-to-br from-primary to-primary/80 text-universal rounded-full flex items-center justify-center font-bold shadow-inner">
-                                        {user.name.charAt(0).toUpperCase()}
+                                        {(user?.name || 'U').charAt(0).toUpperCase()}
                                     </div>
                                     <svg className={`w-4 h-4 text-dark/50 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -121,11 +122,11 @@ const Navbar = () => {
                                         <div className="p-5 bg-linear-to-br from-primary/5 to-transparent border-b border-gray-50">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-xl border border-primary/20">
-                                                    {user.name.charAt(0).toUpperCase()}
+                                                    {(user?.name || 'U').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="text-base font-bold text-dark truncate leading-tight">{user.name}</p>
-                                                    <p className="text-xs text-dark/50 truncate mt-1">{user.email}</p>
+                                                    <p className="text-base font-bold text-dark truncate leading-tight">{user?.name || 'Pengguna'}</p>
+                                                    <p className="text-xs text-dark/50 truncate mt-1">{user?.email}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -218,24 +219,30 @@ const Navbar = () => {
                             <div className="space-y-4">
                                 <div className="p-4 bg-linear-to-r from-primary/5 to-transparent rounded-2xl border border-primary/10 flex items-center gap-4">
                                     <div className="w-12 h-12 bg-primary text-universal rounded-full flex items-center justify-center font-bold text-xl shadow-sm">
-                                        {user.name.charAt(0).toUpperCase()}
+                                        {(user?.name || 'U').charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p className="font-extrabold text-dark">{user.name}</p>
-                                        <p className="text-xs font-medium text-dark/50">{user.email}</p>
+                                        <p className="font-extrabold text-dark">{user?.name || 'Pengguna'}</p>
+                                        <p className="text-xs font-medium text-dark/50">{user?.email}</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <Link to="/booking" onClick={() => setIsMobileMenuOpen(false)} className="bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-3 border border-gray-100 shadow-sm text-dark hover:border-blue-200 hover:bg-blue-50 transition-all">
+                                    <Link to="/booking" onClick={() => setIsMobileMenuOpen(false)} className="bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border border-gray-100 shadow-sm text-dark hover:border-blue-200 hover:bg-blue-50 transition-all">
                                         <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-xl flex items-center justify-center text-xl">🎛️</div>
-                                        <span className="text-sm font-bold">Dashboard</span>
+                                        <span className="text-sm font-bold">Booking</span>
                                     </Link>
-                                    <Link to="/riwayat-booking" onClick={() => setIsMobileMenuOpen(false)} className="bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-3 border border-gray-100 shadow-sm text-dark hover:border-orange-200 hover:bg-orange-50 transition-all">
+                                    <Link to="/riwayat-booking" onClick={() => setIsMobileMenuOpen(false)} className="bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border border-gray-100 shadow-sm text-dark hover:border-orange-200 hover:bg-orange-50 transition-all">
                                         <div className="w-10 h-10 bg-orange-100 text-orange-500 rounded-xl flex items-center justify-center text-xl">📅</div>
                                         <span className="text-sm font-bold">Riwayat</span>
                                     </Link>
-                                    <button onClick={handleLogout} className="bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-3 border border-gray-100 shadow-sm text-red-500 hover:border-red-200 hover:bg-red-50 transition-all">
-                                        <div className="w-10 h-10 bg-red-100 text-red-500 rounded-xl flex items-center justify-center text-xl"></div>
+                                    {user?.is_admin && (
+                                        <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border border-gray-100 shadow-sm text-dark hover:border-purple-200 hover:bg-purple-50 transition-all">
+                                            <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                                            <span className="text-sm font-bold">Admin</span>
+                                        </Link>
+                                    )}
+                                    <button onClick={handleLogout} className={`bg-universal p-4 rounded-2xl flex flex-col items-center justify-center gap-2 border border-gray-100 shadow-sm text-red-500 hover:border-red-200 hover:bg-red-50 transition-all ${user?.is_admin ? '' : 'col-span-2'}`}>
+                                        <div className="w-10 h-10 bg-red-100 text-red-500 rounded-xl flex items-center justify-center text-xl">🚪</div>
                                         <span className="text-sm font-bold">Keluar</span>
                                     </button>
                                 </div>

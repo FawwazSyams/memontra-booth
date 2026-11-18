@@ -4,64 +4,70 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Booking;
-use Midtrans\Notification;
-use Midtrans\Config;
+use App\Services\DokuService;
+use Illuminate\Support\Facades\Log;
 
 class PaymentCallbackController extends Controller
 {
+    protected DokuService $dokuService;
+
+    public function __construct(DokuService $dokuService)
+    {
+        $this->dokuService = $dokuService;
+    }
+
+    /**
+     * Webhook Callback Utama DOKU Payment Gateway
+     */
     public function callback(Request $request)
     {
-        // 1. Konfigurasi Midtrans
-        Config::$serverKey = env('MIDTRANS_SERVER_KEY');
-        Config::$isProduction = false;
-        
+        Log::info('DOKU Webhook Received:', [
+            'headers' => $request->headers->all(),
+            'body' => $request->all()
+        ]);
+
         try {
-            // 2. Inisiasi instance Notification
-            $notification = new Notification();
-            
-            $transactionStatus = $notification->transaction_status;
-            $paymentType = $notification->payment_type;
-            $orderId = $notification->order_id;
-            $fraudStatus = $notification->fraud_status;
+            // Ambil detail transaksi dari DOKU
+            $orderId = $request->input('order.invoice_number')
+                ?? $request->input('invoice_number')
+                ?? $request->input('order_id')
+                ?? $request->input('order.id');
 
-            // Extract Booking ID from INV-MB-{id}-{timestamp}
-            $orderIdParts = explode('-', $orderId);
-            $bookingId = $orderIdParts[2]; // Index 2 is the ID
+            $status = $request->input('transaction.status')
+                ?? $request->input('status')
+                ?? $request->input('transaction_status')
+                ?? 'SUCCESS';
 
-            // 3. Cari Booking yang sesuai
-            $booking = Booking::find($bookingId);
-            
-            if (!$booking) {
-                return response()->json(['message' => 'Booking not found'], 404);
+            if (!$orderId) {
+                return response()->json(['message' => 'Invoice number / Order ID not found'], 400);
             }
 
-            // 4. Update Status Pembayaran berdasarkan respon Midtrans
-            if ($transactionStatus == 'capture') {
-                if ($paymentType == 'credit_card') {
-                    if ($fraudStatus == 'challenge') {
-                        $booking->payment_status = 'pending';
-                    } else {
-                        $booking->payment_status = 'paid';
+            // Jika transaksi untuk Booking Website (format: INV-MB-{id}-{timestamp})
+            if (str_starts_with($orderId, 'INV-MB-')) {
+                $orderIdParts = explode('-', $orderId);
+                $bookingId = $orderIdParts[2] ?? null;
+
+                if ($bookingId) {
+                    $booking = Booking::find($bookingId);
+                    if ($booking) {
+                        if (strtoupper($status) === 'SUCCESS' || strtolower($status) === 'settlement') {
+                            $booking->update(['payment_status' => 'paid']);
+                            Log::info("Booking #$bookingId payment status updated to PAID via DOKU");
+                        } elseif (in_array(strtolower($status), ['failed', 'cancel', 'expire', 'expired'])) {
+                            $booking->update(['payment_status' => 'failed']);
+                        }
                     }
                 }
-            } else if ($transactionStatus == 'settlement') {
-                $booking->payment_status = 'paid';
-            } else if ($transactionStatus == 'pending') {
-                $booking->payment_status = 'pending';
-            } else if ($transactionStatus == 'deny') {
-                $booking->payment_status = 'failed';
-            } else if ($transactionStatus == 'expire') {
-                $booking->payment_status = 'expired';
-            } else if ($transactionStatus == 'cancel') {
-                $booking->payment_status = 'failed';
             }
 
-            // Simpan perubahan ke database
-            $booking->save();
-
-            return response()->json(['message' => 'Callback handled successfully']);
+            // Respons standar DOKU acknowledgement
+            return response()->json([
+                'status' => 'OK',
+                'message' => 'Notification processed successfully'
+            ], 200);
 
         } catch (\Exception $e) {
+            Log::error('Error processing DOKU webhook: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Failed to process callback',
                 'error' => $e->getMessage()

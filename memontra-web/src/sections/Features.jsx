@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
+import { FaCamera, FaProductHunt, FaPrint, FaPen, FaQrcode, FaUser } from 'react-icons/fa';
 
 const Features = () => {
     useEffect(() => {
@@ -11,32 +12,32 @@ const Features = () => {
         {
             title: "Kualitas Kamera DSLR",
             desc: "Bukan sekadar webcam. Kami menggunakan kamera DSLR profesional untuk hasil foto yang super tajam dan jernih.",
-            icon: "📸",
+            icon: <FaCamera />,
         },
         {
             title: "Cetak Cepat & Instan",
             desc: "Hitungan detik, momen langsung tercetak. Menggunakan mesin printer berkualitas agar warna tidak mudah pudar.",
-            icon: "🖨️",
+            icon: <FaPrint />,
         },
         {
             title: "Desain Frame Kustom",
             desc: "Sesuaikan desain bingkai foto dengan tema acaramu. Gratis revisi desain hingga sesuai dengan keinginan.",
-            icon: "🎨",
+            icon: <FaPen />,
         },
         {
             title: "Akses Soft File QR Code",
             desc: "Langsung download foto digitalmu di tempat dengan memindai QR Code. Mudah dibagikan ke sosial media.",
-            icon: "📱",
+            icon: <FaQrcode />,
         },
         {
             title: "Properti Seru & Unik",
             desc: "Dilengkapi berbagai macam fun props (kacamata, topi, tulisan lucu) untuk membuat gayamu makin maksimal.",
-            icon: "🎉",
+            icon: <FaProductHunt />,
         },
         {
             title: "Asisten Standby",
             desc: "Tim kami akan selalu stand-by di lokasi untuk memastikan alat berjalan lancar dan membantu tamu berpose.",
-            icon: "👨‍💻",
+            icon: <FaUser />,
         }
     ];
 
@@ -64,7 +65,7 @@ const Features = () => {
                             data-aos-delay={index * 100} // Efek muncul berurutan
                             className="bg-universal p-8 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-primary/10 hover:border-primary/30 hover:shadow-[0_8px_30px_rgba(28,123,127,0.15)] transition-all duration-300 group"
                         >
-                            <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-3xl mb-6 group-hover:bg-primary group-hover:scale-110 transition-all duration-300">
+                            <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center text-primary justify-center text-3xl mb-6 group-hover:bg-primary group-hover:text-universal group-hover:scale-110 transition-all duration-300">
                                 <span className="group-hover:grayscale-0">{feature.icon}</span>
                             </div>
                             <h4 className="text-xl font-bold text-dark mb-3 group-hover:text-primary transition-colors">

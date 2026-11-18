@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/app_theme.dart';
+import '../services/camera_service.dart';
+import '../widgets/camera_settings_dialog.dart';
 import 'photo_selection.dart';
 
 class CountdownScreen extends StatefulWidget {
@@ -44,19 +46,23 @@ class _CountdownScreenState extends State<CountdownScreen> {
     _initCamera();
   }
 
-  Future<void> _initCamera() async {
+  Future<void> _initCamera([CameraDescription? customCamera]) async {
     try {
-      final cameras = await availableCameras();
+      final cameras = await CameraService.getAvailableCameras();
       if (cameras.isEmpty) {
         debugPrint('Kamera hardware tidak ditemukan, beralih ke Mode Simulator.');
         _enableSimulatedCamera();
         return;
       }
 
-      final camera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
+      final camera = customCamera ??
+          await CameraService.getSelectedCamera() ??
+          cameras.firstWhere(
+            (c) => c.lensDirection == CameraLensDirection.front,
+            orElse: () => cameras.first,
+          );
+
+      await _cameraController?.dispose();
 
       final controller = CameraController(
         camera,
@@ -71,13 +77,29 @@ class _CountdownScreenState extends State<CountdownScreen> {
           _isCameraReady = true;
           _isSimulatedCamera = false;
         });
-        _startSessionTimer();
+        if (_sessionTimer == null) {
+          _startSessionTimer();
+        }
       } else {
         await controller.dispose();
       }
     } catch (e) {
-      debugPrint('Error inisialisasi kamera ($e), menggunakan Mode Simulator.');
+      debugPrint('Error init camera countdown: $e');
       _enableSimulatedCamera();
+    }
+  }
+
+  Future<void> _openCameraSettings() async {
+    if (_isCapturing) return;
+    final newCam = await showDialog<CameraDescription>(
+      context: context,
+      builder: (ctx) => CameraSettingsDialog(
+        currentCamera: _cameraController?.description,
+      ),
+    );
+
+    if (newCam != null && mounted) {
+      _initCamera(newCam);
     }
   }
 
@@ -448,62 +470,87 @@ class _CountdownScreenState extends State<CountdownScreen> {
                         ],
                       ),
 
-                      // Session Timer Pill (2 menit = 120s)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _sessionTimeRemaining <= 30
-                                ? AppTheme.error
-                                : Colors.white.withValues(alpha: 0.4),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.timer_outlined,
-                              color: _sessionTimeRemaining <= 30
-                                  ? AppTheme.error
-                                  : AppTheme.secondary,
-                              size: 26,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _formatTime(_sessionTimeRemaining),
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: _sessionTimeRemaining <= 30
-                                    ? AppTheme.error
-                                    : Colors.white,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                      // Session Timer & Camera Switch Button
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: _isCapturing ? null : _openCameraSettings,
+                            tooltip: 'Pilih Kamera',
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.65),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.cameraswitch_rounded,
+                                color: Colors.white,
+                                size: 22,
                               ),
                             ),
-                          ],
-                        ),
-                      ).animate(
-                        onPlay: (controller) => controller.repeat(reverse: true),
-                      ).scale(
-                        duration: _sessionTimeRemaining <= 15 ? 400.ms : 2.seconds,
-                        begin: const Offset(1.0, 1.0),
-                        end: Offset(
-                          _sessionTimeRemaining <= 15 ? 1.06 : 1.02,
-                          _sessionTimeRemaining <= 15 ? 1.06 : 1.02,
-                        ),
-                        curve: Curves.easeInOut,
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _sessionTimeRemaining <= 30
+                                    ? AppTheme.error
+                                    : Colors.white.withValues(alpha: 0.4),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.timer_outlined,
+                                  color: _sessionTimeRemaining <= 30
+                                      ? AppTheme.error
+                                      : AppTheme.secondary,
+                                  size: 26,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _formatTime(_sessionTimeRemaining),
+                                  style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    color: _sessionTimeRemaining <= 30
+                                        ? AppTheme.error
+                                        : Colors.white,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ).animate(
+                            onPlay: (controller) => controller.repeat(reverse: true),
+                          ).scale(
+                            duration: _sessionTimeRemaining <= 15 ? 400.ms : 2.seconds,
+                            begin: const Offset(1.0, 1.0),
+                            end: Offset(
+                              _sessionTimeRemaining <= 15 ? 1.06 : 1.02,
+                              _sessionTimeRemaining <= 15 ? 1.06 : 1.02,
+                            ),
+                            curve: Curves.easeInOut,
+                          ),
+                        ],
                       ),
                     ],
                   ),

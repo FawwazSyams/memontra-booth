@@ -5,6 +5,8 @@ import 'package:camera/camera.dart';
 
 import 'theme/app_theme.dart';
 import 'services/api_service.dart';
+import 'services/camera_service.dart';
+import 'widgets/camera_settings_dialog.dart';
 import 'screens/frame_selection.dart';
 
 void main() {
@@ -45,15 +47,16 @@ class _AttractScreenState extends State<AttractScreen> {
     _initCamera();
   }
 
-  Future<void> _initCamera() async {
+  Future<void> _initCamera([CameraDescription? customCamera]) async {
     try {
-      final cameras = await availableCameras();
+      final cameras = await CameraService.getAvailableCameras();
       if (cameras.isEmpty) return;
 
-      final camera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
+      final camera = customCamera ??
+          await CameraService.getSelectedCamera() ??
+          cameras.first;
+
+      await _cameraController?.dispose();
 
       final controller = CameraController(
         camera,
@@ -72,6 +75,19 @@ class _AttractScreenState extends State<AttractScreen> {
       }
     } catch (e) {
       debugPrint('Live camera attract screen info: $e');
+    }
+  }
+
+  Future<void> _openCameraSettings() async {
+    final newCam = await showDialog<CameraDescription>(
+      context: context,
+      builder: (ctx) => CameraSettingsDialog(
+        currentCamera: _cameraController?.description,
+      ),
+    );
+
+    if (newCam != null && mounted) {
+      _initCamera(newCam);
     }
   }
 
@@ -263,6 +279,33 @@ class _AttractScreenState extends State<AttractScreen> {
                     )
                       .animate()
                       .fadeIn(duration: 500.ms),
+            ),
+
+            // 3. Settings / Camera Selector Button (Top-Right)
+            Positioned(
+              top: 24,
+              right: 24,
+              child: SafeArea(
+                child: IconButton(
+                  onPressed: _openCameraSettings,
+                  tooltip: 'Pengaturan Kamera',
+                  icon: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

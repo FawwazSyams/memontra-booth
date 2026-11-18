@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import Logo from '../../assets/images/logo-booth-second.png';
 
 const Register = () => {
     // State untuk menangkap inputan user
@@ -51,7 +52,7 @@ const Register = () => {
 
                 <div className="text-center mb-8">
                     <Link to="/" className="text-2xl font-bold text-primary inline-block mb-2">
-                        MEMONTRA <span className="text-secondary">BOOTH</span>
+                        <img src={Logo} className="h-12 mx-auto" alt="Memontra Logo" />
                     </Link>
                     <h2 className="text-2xl font-bold text-dark mt-4">Buat Akun Baru</h2>
                     <p className="text-dark/60 text-sm mt-2">Daftar untuk mulai mengatur pesanan photobooth-mu.</p>

@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await axios.get('/api/user');
             setUser(response.data);
-        } catch (error) {
+        } catch {
             setUser(null);
         } finally {
             setIsLoading(false);
@@ -25,13 +25,18 @@ export const AuthProvider = ({ children }) => {
         await csrf();
         try {
             await axios.post('/login', { email, password });
-            await getUser();
-            return true;
+            const response = await axios.get('/api/user');
+            setUser(response.data);
+            return response.data;
         } catch (error) {
             if (error.response?.status === 422) {
                 setErrors(error.response.data.errors);
+            } else {
+                setErrors({
+                    general: [error.response?.data?.message || 'Gagal masuk. Periksa email/password atau koneksi Anda.']
+                });
             }
-            return false;
+            return null;
         }
     };
 
@@ -44,6 +49,10 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             if (error.response?.status === 422) {
                 setErrors(error.response.data.errors);
+            } else {
+                setErrors({
+                    general: [error.response?.data?.message || 'Gagal mendaftar. Silakan coba lagi.']
+                });
             }
             return false;
         }
@@ -61,7 +70,21 @@ export const AuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        getUser();
+        let isMounted = true;
+        const initAuth = async () => {
+            try {
+                const response = await axios.get('/api/user');
+                if (isMounted) setUser(response.data);
+            } catch {
+                if (isMounted) setUser(null);
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
+        };
+        initAuth();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     return (
@@ -71,4 +94,5 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

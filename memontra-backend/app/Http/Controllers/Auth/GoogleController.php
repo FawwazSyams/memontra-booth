@@ -45,12 +45,13 @@ class GoogleController extends Controller
             Auth::login($user);
 
             // Redirect balik ke React (Frontend)
-            // Pastikan URL ini sesuai dengan URL React kamu berjalan
-            return redirect('http://localhost:5173/');
+            $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+            return redirect($frontendUrl . '/');
 
         } catch (Exception $e) {
             // Kalau gagal/cancel, lempar balik ke halaman login React
-            return redirect('http://localhost:5173/login?error=google_auth_failed');
+            $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+            return redirect($frontendUrl . '/login?error=google_auth_failed');
         }
     }
 }

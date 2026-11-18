@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:camera/camera.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/printer_service.dart';
 import 'output.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -139,6 +140,18 @@ class _ReviewScreenState extends State<ReviewScreen> {
       } catch (e) {
         debugPrint('Upload photo background note: $e');
       }
+    }
+
+    // Render dan upload Hasil Foto Strip + Frame (Komposit Final) untuk softfile download
+    try {
+      final stripBytes = await PrinterService.generateSingleStripImage(
+        photos: widget.photos,
+        frameAssetPath: widget.frameImagePath,
+        filterMatrix: _filters[_selectedFilterIndex]['matrix'],
+      );
+      await ApiService.uploadStrip(widget.sessionId, stripBytes);
+    } catch (e) {
+      debugPrint('Upload composite strip photo note: $e');
     }
 
     if (!mounted) return;

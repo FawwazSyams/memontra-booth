@@ -97,4 +97,98 @@ class ApiService {
       return false;
     }
   }
+
+  /// Upload Hasil Foto Strip + Frame (Komposit Final) untuk Softfile Download
+  static Future<bool> uploadStrip(String sessionId, Uint8List stripBytes) async {
+    try {
+      String base64Strip = base64Encode(stripBytes);
+
+      // Coba upload ke endpoint khusus /strip
+      final response = await http.post(
+        Uri.parse('$baseUrl/sessions/$sessionId/strip'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'sequence_number': 0, // sequence_number 0 menandakan foto strip komposit final
+          'photo_base64': base64Strip,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint('Upload foto strip + frame komposit sukses!');
+        return true;
+      }
+
+      // Fallback: upload ke /photos biasa dengan sequence_number: 0
+      final fallbackResponse = await http.post(
+        Uri.parse('$baseUrl/sessions/$sessionId/photos'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'sequence_number': 0,
+          'photo_base64': base64Strip,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      return fallbackResponse.statusCode == 200 || fallbackResponse.statusCode == 201;
+    } catch (e) {
+      debugPrint('Error upload foto strip komposit: $e');
+      return false;
+    }
+  }
+
+  /// Buat transaksi QRIS DOKU melalui backend
+  static Future<Map<String, dynamic>?> generateQrisPayment({int amount = 25000}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$paymentUrl/qris'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'amount': amount,
+          'gateway': 'doku',
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          return {
+            'order_id': data['order_id'],
+            'qr_string': data['qr_string'],
+            'qr_url': data['qr_url'],
+            'amount': data['amount'] ?? amount,
+            'gateway': data['gateway'] ?? 'doku',
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('Error request QRIS DOKU: $e');
+    }
+    return null;
+  }
+
+  /// Cek status pembayaran ke backend (Polling)
+  static Future<String> checkPaymentStatus(String orderId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$paymentUrl/status/$orderId'),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['transaction_status'] ?? 'pending';
+      }
+    } catch (e) {
+      debugPrint('Error checking payment status: $e');
+    }
+    return 'pending';
+  }
 }

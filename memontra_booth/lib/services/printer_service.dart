@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class PrinterService {
     required List<XFile> photos,
     required String frameAssetPath,
     List<double>? filterMatrix,
+    Color? backgroundColor,
     bool drawPerforationGuide = true,
   }) async {
     final recorder = ui.PictureRecorder();
@@ -38,8 +40,8 @@ class PrinterService {
       const Rect.fromLTWH(0, 0, canvasWidth, canvasHeight),
     );
 
-    // 1. Gambar background putih (kertas foto 4R)
-    final bgPaint = Paint()..color = Colors.white;
+    // 1. Gambar background putih (kertas foto 4R / custom background)
+    final bgPaint = Paint()..color = backgroundColor ?? Colors.white;
     canvas.drawRect(
       const Rect.fromLTWH(0, 0, canvasWidth, canvasHeight),
       bgPaint,
@@ -69,23 +71,21 @@ class PrinterService {
       photoPaint.colorFilter = ColorFilter.matrix(filterMatrix);
     }
 
-    // 4. Load asset gambar frame PNG
-    ui.Image? frameImage;
-    try {
-      final byteData = await rootBundle.load(frameAssetPath);
-      final codec = await ui.instantiateImageCodec(
-        byteData.buffer.asUint8List(),
-      );
-      final frameInfo = await codec.getNextFrame();
-      frameImage = frameInfo.image;
-    } catch (e) {
-      debugPrint('Error loading frame asset $frameAssetPath: $e');
-    }
+    // 4. Load asset gambar frame PNG (Asset atau File Kustom)
+    ui.Image? frameImage = await _loadFrameImage(frameAssetPath);
 
     final slotYPositions = [slot1Y, slot2Y, slot3Y];
 
     // Helper untuk menggambar 1 strip lengkap (3 foto + frame overlay)
     void renderSingleStrip(double offsetX) {
+      if (backgroundColor != null && backgroundColor != Colors.white) {
+        final stripBg = Paint()..color = backgroundColor;
+        canvas.drawRect(
+          Rect.fromLTWH(offsetX, 0, stripWidth, stripHeight),
+          stripBg,
+        );
+      }
+
       // Gambar 3 foto di bawah frame
       for (int i = 0; i < 3; i++) {
         final img = decodedPhotos[i];
@@ -162,6 +162,122 @@ class PrinterService {
     );
 
     return byteData!.buffer.asUint8List();
+  }
+
+  /// Generate 1 strip foto tunggal (1200 x 3600 px) untuk softfile download customer
+  static Future<Uint8List> generateSingleStripImage({
+    required List<XFile> photos,
+    required String frameAssetPath,
+    List<double>? filterMatrix,
+    Color? backgroundColor,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(
+      recorder,
+      const Rect.fromLTWH(0, 0, stripWidth, stripHeight),
+    );
+
+    // 1. Background strip
+    final bgPaint = Paint()..color = backgroundColor ?? Colors.white;
+    canvas.drawRect(
+      const Rect.fromLTWH(0, 0, stripWidth, stripHeight),
+      bgPaint,
+    );
+
+    // 2. Decode foto
+    final List<ui.Image?> decodedPhotos = [];
+    for (int i = 0; i < 3; i++) {
+      if (i < photos.length) {
+        try {
+          final bytes = await photos[i].readAsBytes();
+          final codec = await ui.instantiateImageCodec(bytes);
+          final frameInfo = await codec.getNextFrame();
+          decodedPhotos.add(frameInfo.image);
+        } catch (e) {
+          decodedPhotos.add(null);
+        }
+      } else {
+        decodedPhotos.add(null);
+      }
+    }
+
+    final photoPaint = Paint();
+    if (filterMatrix != null && filterMatrix.length == 20) {
+      photoPaint.colorFilter = ColorFilter.matrix(filterMatrix);
+    }
+
+    // 3. Frame Image
+    final frameImage = await _loadFrameImage(frameAssetPath);
+    final slotYPositions = [slot1Y, slot2Y, slot3Y];
+
+    // Gambar 3 foto
+    for (int i = 0; i < 3; i++) {
+      final img = decodedPhotos[i];
+      if (img != null) {
+        final destRect = Rect.fromLTWH(
+          slotX,
+          slotYPositions[i],
+          slotWidth,
+          slotHeight,
+        );
+        final srcRect = _calculateCoverSrcRect(
+          img.width,
+          img.height,
+          slotWidth,
+          slotHeight,
+        );
+        canvas.drawImageRect(img, srcRect, destRect, photoPaint);
+      }
+    }
+
+    // Gambar Frame Overlay
+    if (frameImage != null) {
+      final frameSrc = Rect.fromLTWH(
+        0,
+        0,
+        frameImage.width.toDouble(),
+        frameImage.height.toDouble(),
+      );
+      final frameDest = const Rect.fromLTWH(0, 0, stripWidth, stripHeight);
+      canvas.drawImageRect(frameImage, frameSrc, frameDest, Paint());
+    }
+
+    final picture = recorder.endRecording();
+    final finalImage = await picture.toImage(
+      stripWidth.toInt(),
+      stripHeight.toInt(),
+    );
+    final byteData = await finalImage.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
+    return byteData!.buffer.asUint8List();
+  }
+
+  /// Helper untuk memuat gambar frame baik dari Flutter Assets maupun File Sistem Windows
+  static Future<ui.Image?> _loadFrameImage(String framePath) async {
+    try {
+      Uint8List bytes;
+      if (framePath.startsWith('assets/')) {
+        final byteData = await rootBundle.load(framePath);
+        bytes = byteData.buffer.asUint8List();
+      } else {
+        final file = File(framePath);
+        if (await file.exists()) {
+          bytes = await file.readAsBytes();
+        } else {
+          debugPrint('Frame $framePath tidak ditemukan di disk, fallback ke assets');
+          final byteData = await rootBundle.load('assets/frames/strip1.png');
+          bytes = byteData.buffer.asUint8List();
+        }
+      }
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frameInfo = await codec.getNextFrame();
+      return frameInfo.image;
+    } catch (e) {
+      debugPrint('Error loading frame image: $e');
+      return null;
+    }
   }
 
   /// Hitung Rect sumber foto agar pas dengan mode BoxFit.cover (tidak distorsi / gepeng)

@@ -10,9 +10,9 @@ const Gallery = () => {
 
     // Data dummy untuk galeri (Nanti ganti URL gambarnya dengan hasil foto/desain frame asli)
     const galleryItems = [
-        { id: 1, title: "Wedding Frame Elegan", img: "https://placehold.co/600x800/1C7B7F/FFF?text=Wedding+1" },
-        { id: 2, title: "Birthday Party Fun", img: "https://placehold.co/800x600/EFBF04/111?text=Birthday+1" },
-        { id: 3, title: "Graduation Vibe", img: "https://placehold.co/600x800/111111/FFF?text=Graduation" },
+        { id: 1, title: "Wedding Frame Elegan", img: "../src/assets/images/wedding.jpg" },
+        { id: 2, title: "Birthday Party Fun", img: "../src/assets/images/birthday.jpg" },
+        { id: 3, title: "Graduation Vibe", img: "../src/assets/images/graduation.jpg" },
         { id: 4, title: "Corporate Event", img: "https://placehold.co/800x600/1C7B7F/FFF?text=Corporate" },
         { id: 5, title: "Intimate Engagement", img: "https://placehold.co/600x800/EFBF04/111?text=Engagement" },
         { id: 6, title: "Kids Party Custom", img: "https://placehold.co/800x600/111111/FFF?text=Kids+Party" },

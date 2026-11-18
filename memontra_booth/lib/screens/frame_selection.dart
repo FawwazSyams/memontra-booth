@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/add_frame_dialog.dart';
+import '../services/frame_service.dart';
 import 'payment.dart';
 
 class FrameSelectionScreen extends StatefulWidget {
@@ -14,39 +17,12 @@ class FrameSelectionScreen extends StatefulWidget {
 }
 
 class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
-  final List<Map<String, dynamic>> _allFrames = [
-    {
-      'id': 1,
-      'name': 'Deep Blue Stars',
-      'image_path': 'assets/frames/strip1.png',
-      'layout_type': 'strip_vertical_3',
-      'categories': ['Most Used', 'Classic', 'Trendy'],
-    },
-    {
-      'id': 2,
-      'name': 'White Elegance',
-      'image_path': 'assets/frames/strip2.png',
-      'layout_type': 'strip_vertical_3',
-      'categories': ['Most Used', 'Classic', 'Cute & Fun'],
-    },
-    {
-      'id': 3,
-      'name': 'Golden Sunset',
-      'image_path': 'assets/frames/strip3.png',
-      'layout_type': 'strip_vertical_3',
-      'categories': ['Most Used', 'Vintage', 'Trendy'],
-    },
-    {
-      'id': 4,
-      'name': 'Vintage Retro',
-      'image_path': 'assets/frames/strip1.png',
-      'layout_type': 'strip_vertical_3',
-      'categories': ['Vintage', 'Cute & Fun'],
-    },
-  ];
+  List<Map<String, dynamic>> _allFrames = [];
+  bool _isLoadingFrames = true;
 
   final List<String> _categories = [
     'Most Used',
+    'Custom Event',
     'Classic',
     'Vintage',
     'Trendy',
@@ -58,6 +34,7 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
   String? _selectedLayoutType;
   String? _selectedImagePath;
   String? _selectedFrameName;
+  Color? _selectedBackgroundColor;
 
   // Active Timer (60s countdown)
   int _secondsRemaining = 60;
@@ -66,10 +43,67 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    if (_allFrames.isNotEmpty) {
-      _setSelection(_allFrames[0]);
-    }
+    _loadFrames();
     _startTimer();
+  }
+
+  Future<void> _loadFrames() async {
+    final frames = await FrameService.loadAllFrames();
+    if (mounted) {
+      setState(() {
+        _allFrames = frames;
+        _isLoadingFrames = false;
+        if (_allFrames.isNotEmpty && _selectedFrameId == null) {
+          _setSelection(_allFrames[0]);
+        }
+      });
+    }
+  }
+
+  Future<void> _openAddFrameDialog() async {
+    _countdownTimer?.cancel();
+    final newFrame = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AddFrameDialog(),
+    );
+
+    if (newFrame != null) {
+      await _loadFrames();
+      setState(() {
+        _setSelection(newFrame);
+        _selectedCategoryIndex = _categories.indexOf('Custom Event');
+        if (_selectedCategoryIndex == -1) _selectedCategoryIndex = 0;
+      });
+    }
+
+    _startTimer();
+  }
+
+  Future<void> _deleteFrame(Map<String, dynamic> frame) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Frame Kustom?'),
+        content: Text('Apakah Anda yakin ingin menghapus "${frame['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await FrameService.deleteCustomFrame(frame['id'] as int);
+      await _loadFrames();
+    }
   }
 
   void _startTimer() {
@@ -112,7 +146,30 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
       _selectedLayoutType = frame['layout_type'] as String;
       _selectedImagePath = frame['image_path'] as String;
       _selectedFrameName = frame['name'] as String;
+      _selectedBackgroundColor =
+          FrameService.parseHexColor(frame['background_color'] as String?);
     });
+  }
+
+  Widget _buildFrameImage(String path, {BoxFit fit = BoxFit.contain}) {
+    if (path.startsWith('assets/')) {
+      return Image.asset(
+        path,
+        fit: fit,
+        errorBuilder: (ctx, err, st) => Container(
+          color: Colors.grey.shade200,
+          child: const Center(child: Icon(Icons.broken_image, size: 40)),
+        ),
+      );
+    }
+    return Image.file(
+      File(path),
+      fit: fit,
+      errorBuilder: (ctx, err, st) => Container(
+        color: Colors.grey.shade200,
+        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+      ),
+    );
   }
 
   void _goToNext() {
@@ -202,53 +259,85 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
                         ],
                       ).animate().fadeIn().slideY(begin: -0.15),
 
-                      // Functional Countdown Timer
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: _secondsRemaining <= 10
-                                ? AppTheme.error
-                                : AppTheme.primary.withValues(alpha: 0.2),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.timer_outlined,
-                              color: _secondsRemaining <= 10
-                                  ? AppTheme.error
-                                  : AppTheme.primary,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _formatTimer(_secondsRemaining),
+                      // Functional Countdown Timer & Add Frame Button
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _openAddFrameDialog,
+                            icon: const Icon(Icons.add_photo_alternate_rounded, size: 20),
+                            label: const Text(
+                              'TAMBAH FRAME',
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: _secondsRemaining <= 10
-                                    ? AppTheme.error
-                                    : AppTheme.textDark,
-                                fontFeatures: const [FontFeature.tabularFigures()],
+                                letterSpacing: 0.5,
                               ),
                             ),
-                          ],
-                        ),
-                      ).animate().fadeIn(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.buttonPrimary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 2,
+                            ),
+                          ).animate().fadeIn(),
+
+                          const SizedBox(width: 14),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: _secondsRemaining <= 10
+                                    ? AppTheme.error
+                                    : AppTheme.primary.withValues(alpha: 0.2),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 10,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.timer_outlined,
+                                  color: _secondsRemaining <= 10
+                                      ? AppTheme.error
+                                      : AppTheme.primary,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _formatTimer(_secondsRemaining),
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: _secondsRemaining <= 10
+                                        ? AppTheme.error
+                                        : AppTheme.textDark,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ).animate().fadeIn(),
+                        ],
+                      ),
                     ],
                   ),
 
@@ -354,16 +443,22 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
                           child: GlassCard(
                             padding: const EdgeInsets.all(20),
                             borderRadius: BorderRadius.circular(24),
-                            child: displayedFrames.isEmpty
+                            child: _isLoadingFrames
                                 ? const Center(
-                                    child: Text(
-                                      'Tidak ada frame di kategori ini.',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: AppTheme.textDark,
-                                      ),
+                                    child: CircularProgressIndicator(
+                                      color: AppTheme.primary,
                                     ),
                                   )
+                                : displayedFrames.isEmpty
+                                    ? const Center(
+                                        child: Text(
+                                          'Tidak ada frame di kategori ini.',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: AppTheme.textDark,
+                                          ),
+                                        ),
+                                      )
                                 : GridView.builder(
                                     physics: const BouncingScrollPhysics(),
                                     gridDelegate:
@@ -409,19 +504,55 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
                                                 padding: const EdgeInsets.all(8.0),
                                                 child: ClipRRect(
                                                   borderRadius: BorderRadius.circular(10),
-                                                  child: Image.asset(
-                                                    frame['image_path'],
-                                                    fit: BoxFit.contain,
-                                                    errorBuilder: (context, error, stackTrace) =>
-                                                        Container(
-                                                      color: Colors.grey[200],
-                                                      child: const Center(
-                                                        child: Icon(Icons.image, size: 40),
-                                                      ),
-                                                    ),
-                                                  ),
+                                                  child: _buildFrameImage(frame['image_path']),
                                                 ),
                                               ),
+
+                                              // Custom Frame Badge & Delete Button
+                                              if (frame['is_custom'] == true)
+                                                Positioned(
+                                                  top: 8,
+                                                  left: 8,
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2,
+                                                        ),
+                                                        decoration: BoxDecoration(
+                                                          color: AppTheme.primary,
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: const Text(
+                                                          'KUSTOM',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 9,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      InkWell(
+                                                        onTap: () => _deleteFrame(frame),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.all(4),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.red.withValues(alpha: 0.9),
+                                                            shape: BoxShape.circle,
+                                                          ),
+                                                          child: const Icon(
+                                                            Icons.delete_outline_rounded,
+                                                            color: Colors.white,
+                                                            size: 14,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
 
                                               // Selected Checkmark Badge
                                               if (isSelected)
@@ -556,19 +687,19 @@ class _FrameSelectionScreenState extends State<FrameSelectionScreen> {
                                       ? const Center(
                                           child: Text('Pilih salah satu frame'),
                                         )
-                                      : ClipRRect(
-                                          borderRadius: BorderRadius.circular(14),
-                                          child: Image.asset(
-                                            _selectedImagePath!,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (context, error, stackTrace) =>
-                                                Container(
-                                              color: Colors.grey[200],
-                                              child: const Center(
-                                                child: Text('Preview'),
+                                      : Container(
+                                          decoration: BoxDecoration(
+                                            color: _selectedBackgroundColor ?? Colors.white,
+                                            borderRadius: BorderRadius.circular(14),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.08),
+                                                blurRadius: 10,
                                               ),
-                                            ),
+                                            ],
                                           ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: _buildFrameImage(_selectedImagePath!),
                                         ),
                                 ),
                               ],

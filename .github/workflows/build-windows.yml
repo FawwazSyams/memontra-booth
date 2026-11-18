@@ -70,9 +70,9 @@ jobs:
       - name: Create Zip Package
         shell: pwsh
         run: |
-          Compress-Archive -Path "memontra_booth/build/windows/x64/runner/Release/*" -DestinationPath "memontra-booth-windows-v1.0.0.zip" -Force
+          Compress-Archive -Path "memontra_booth/build/windows/x64/runner/Release/*" -DestinationPath "memontra-booth-windows-v2.0.0.zip" -Force
           Write-Host "Zip created successfully:"
-          Get-Item memontra-booth-windows-v1.0.0.zip | Select-Object Name, Length
+          Get-Item memontra-booth-windows-v2.0.0.zip | Select-Object Name, Length
 
       - name: Upload Windows Release Artifact
         uses: actions/upload-artifact@v4
@@ -86,5 +86,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          Write-Host "Publishing to GitHub Releases v1.0.0..."
-          gh release create v1.0.0 memontra-booth-windows-v1.0.0.zip --title "Memontra Booth Windows v1.0.0 (Standalone)" --notes "Official standalone Windows release for Memontra Booth kiosk. Includes all bundled Visual C++ runtimes and offline installer. Ready to run directly on Windows 10/11."
+          Write-Host "Publishing to GitHub Releases v2.0.0..."
+          gh release create v2.0.0 memontra-booth-windows-v2.0.0.zip --clobber --title "Memontra Booth Windows v2.0.0 (Standalone)" --notes "Official standalone Windows release v2.0.0. Features: DOKU payment gateway integration, custom frame templates management, custom background styling, external camera device selector, and softfile framed photo download."

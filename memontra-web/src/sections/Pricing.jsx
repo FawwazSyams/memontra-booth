@@ -1,5 +1,6 @@
 // src/sections/Pricing.jsx
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
@@ -123,15 +124,15 @@ const Pricing = () => {
                             </ul>
 
                             {/* Tombol CTA */}
-                            <a
-                                href="#kontak"
+                            <Link
+                                to={`/booking?package=${pkg.name}`}
                                 className={`absolute bottom-4 left-4 right-4 text-center py-3 px-6 rounded-full font-semibold transition-all duration-300 ${pkg.isPopular
                                     ? 'bg-primary text-universal hover:bg-opacity-90 hover:shadow-lg hover:-translate-y-1'
                                     : 'bg-primary/10 text-primary hover:bg-primary hover:text-universal'
                                     }`}
                             >
                                 Pilih {pkg.name}
-                            </a>
+                            </Link>
                         </div>
                     ))}
                 </div>

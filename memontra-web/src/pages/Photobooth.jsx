@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Navbar from '../components/layouts/Navbar';
 import Footer from '../components/layouts/Footer';
 import logo from '../assets/images/logo-booth-second.png';
@@ -49,35 +49,37 @@ const templates = [
 const Photobooth = () => {
   const [step, setStep] = useState(1);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [photos, setPhotos] = useState([]);
+  const [, setPhotos] = useState([]);
   const [countdown, setCountdown] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
-  useEffect(() => {
-    if (step === 2) startCamera();
-    else stopCamera();
-    return () => stopCamera();
-  }, [step]);
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) videoRef.current.srcObject = stream;
       streamRef.current = stream;
     } catch (err) {
-      alert("Kamera tidak aktif.");
+      console.error("Gagal mengakses kamera:", err);
+      alert("Kamera tidak aktif atau izin kamera ditolak.");
     }
-  };
+  }, []);
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
+  useEffect(() => {
+    if (step === 2) startCamera();
+    else stopCamera();
+    return () => stopCamera();
+  }, [step, startCamera, stopCamera]);
 
   const handleSelectTemplate = (template) => {
     setSelectedTemplate(template);
@@ -113,11 +115,15 @@ const Photobooth = () => {
     }
 
     setStep(3);
+    setIsGenerating(true);
     setTimeout(() => generateResult(capturedPhotos), 100);
   };
 
   const generateResult = (capturedPhotos) => {
-    if (!canvasRef.current || !selectedTemplate) return;
+    if (!canvasRef.current || !selectedTemplate) {
+      setIsGenerating(false);
+      return;
+    }
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     canvas.width = selectedTemplate.width;
@@ -133,6 +139,10 @@ const Photobooth = () => {
       bgImg.src = selectedTemplate.image;
       bgImg.onload = () => {
         ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+        setIsGenerating(false);
+      };
+      bgImg.onerror = () => {
+        setIsGenerating(false);
       };
     };
 
@@ -271,9 +281,10 @@ const Photobooth = () => {
                 </button>
                 <button
                   onClick={downloadPhoto}
-                  className="px-8 py-3 bg-secondary text-white rounded-full font-bold hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  disabled={isGenerating}
+                  className="px-8 py-3 bg-secondary text-white rounded-full font-bold hover:shadow-xl hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Unduh Foto
+                  {isGenerating ? "Menyiapkan Foto..." : "Unduh Foto"}
                 </button>
               </div>
             </div>

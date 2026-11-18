@@ -17,6 +17,8 @@ class Booking extends Model
         'city',
         'event_type',
         'address',
+        'latitude',
+        'longitude',
         'status',
         'total_price',
         'payment_status',
