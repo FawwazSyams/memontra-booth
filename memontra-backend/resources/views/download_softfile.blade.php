@@ -290,7 +290,7 @@
                     <span>🖼️ Foto Strip + Frame Kamu</span>
                 </div>
                 <div class="strip-preview-wrapper">
-                    <img src="{{ asset('storage/' . $stripPhoto->file_path) }}" 
+                    <img src="{{ url('/download/' . $sessionId . '/view-strip') }}" 
                          alt="Foto Strip dan Frame Memontra" 
                          class="strip-preview-img">
                 </div>
@@ -305,7 +305,7 @@
             <div class="gif-container" id="gifPlayer">
                 <span class="gif-badge">🎬 Live Animasi GIF</span>
                 @foreach($posePhotos as $index => $photo)
-                    <img src="{{ asset('storage/' . $photo->file_path) }}" 
+                    <img src="{{ url('/download/' . $sessionId . '/view-photo/' . $photo->id) }}" 
                          alt="Pose {{ $photo->sequence_number }}" 
                          class="gif-frame {{ $index === 0 ? 'active' : '' }}" 
                          data-index="{{ $index }}">
@@ -331,7 +331,7 @@
             <div class="photo-grid">
                 @foreach($posePhotos as $photo)
                     <div class="photo-card">
-                        <img src="{{ asset('storage/' . $photo->file_path) }}" 
+                        <img src="{{ url('/download/' . $sessionId . '/view-photo/' . $photo->id) }}" 
                              alt="Foto #{{ $photo->sequence_number }}" 
                              class="photo-thumb" 
                              loading="lazy">
