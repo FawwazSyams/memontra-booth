@@ -15,9 +15,9 @@ class DokuService
 
     public function __construct()
     {
-        $this->clientId = env('DOKU_CLIENT_ID', 'MCH-DEMO-MEMONTRA');
-        $this->secretKey = env('DOKU_SECRET_KEY', 'SK-DEMO-MEMONTRA-KEY');
-        $this->isProduction = (bool) env('DOKU_IS_PRODUCTION', false);
+        $this->clientId = env('DOKU_CLIENT_ID', 'BRN-0222-1794325816935');
+        $this->secretKey = env('DOKU_SECRET_KEY', 'SK-17qzdFuXy8Wg6iR7OgWM');
+        $this->isProduction = (bool) env('DOKU_IS_PRODUCTION', true);
 
         $this->baseUrl = $this->isProduction
             ? 'https://api.doku.com'
@@ -185,7 +185,7 @@ class DokuService
             if ($response->successful()) {
                 $data = $response->json();
                 $paymentUrl = $data['response']['payment']['url'] ?? null;
-                $qrString = $data['response']['payment']['qr_string'] ?? null;
+                $qrString = $data['response']['payment']['qr_string'] ?? $paymentUrl;
 
                 return [
                     'status' => 'success',
@@ -198,9 +198,15 @@ class DokuService
                 ];
             }
 
+            Log::error('DOKU QRIS API Error:', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+
             return [
                 'status' => 'error',
                 'message' => $response->json('message') ?? 'Gagal membuat QRIS DOKU',
+                'raw_error' => $response->body(),
             ];
 
         } catch (\Exception $e) {
