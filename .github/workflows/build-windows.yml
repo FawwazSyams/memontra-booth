@@ -82,22 +82,11 @@ jobs:
           retention-days: 14
 
       - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.0
+          name: "Memontra Booth Windows v2.0.0 (Standalone)"
+          body: "Official standalone Windows release v2.0.0. Features: DOKU payment gateway integration, custom frame templates management, custom background styling, external camera device selector, and softfile framed photo download."
+          files: memontra-booth-windows-v2.0.0.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: |
-          Write-Host "Publishing to GitHub Releases v2.0.0..."
-          $tag = "v2.0.0"
-          $zip = "memontra-booth-windows-v2.0.0.zip"
-          $title = "Memontra Booth Windows v2.0.0 (Standalone)"
-          $notes = "Official standalone Windows release v2.0.0. Features: DOKU payment gateway integration, custom frame templates management, custom background styling, external camera device selector, and softfile framed photo download."
-
-          # Periksa apakah release sudah ada
-          $existing = gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release $tag already exists. Uploading zip asset with --clobber..."
-            gh release upload $tag $zip --clobber
-          } else {
-            Write-Host "Creating new GitHub Release $tag..."
-            gh release create $tag $zip --title $title --notes $notes
-          }
