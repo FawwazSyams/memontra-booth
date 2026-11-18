@@ -19,18 +19,32 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Clean Stale Ephemeral Files
+        shell: pwsh
+        run: |
+          if (Test-Path memontra_booth/windows/flutter/ephemeral) {
+            Remove-Item -Recurse -Force memontra_booth/windows/flutter/ephemeral
+          }
+          if (Test-Path memontra_booth/windows/flutter/generated_plugins.cmake) {
+            Remove-Item -Force memontra_booth/windows/flutter/generated_plugins.cmake
+          }
+
       - name: Install Flutter Dependencies
         working-directory: memontra_booth
         run: flutter pub get
 
       - name: Build Windows Executable
         working-directory: memontra_booth
-        run: flutter build windows --release
+        run: flutter build windows --release --verbose
 
       - name: Archive Windows Release
+        shell: pwsh
         working-directory: memontra_booth/build/windows/x64/runner/Release
         run: |
-          powershell Compress-Archive -Path * -DestinationPath ../../../../../memontra-booth-windows.zip
+          Compress-Archive -Path * -DestinationPath ../../../../../memontra-booth-windows.zip -Force
 
       - name: Upload Windows App Binary
         uses: actions/upload-artifact@v4
