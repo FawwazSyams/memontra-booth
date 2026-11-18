@@ -218,6 +218,33 @@ class DokuService
     }
 
     /**
+     * Cek status transaksi langsung ke API DOKU
+     */
+    public function checkTransactionStatus(string $orderId): ?string
+    {
+        $targetPath = '/orders/v1/status/' . $orderId;
+
+        try {
+            $headers = $this->generateHeaders($targetPath, []);
+            $response = Http::withHeaders($headers)
+                ->timeout(10)
+                ->get($this->baseUrl . $targetPath);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['transaction']['status']
+                    ?? $data['response']['transaction']['status']
+                    ?? $data['status']
+                    ?? null;
+            }
+        } catch (\Exception $e) {
+            Log::warning('DOKU checkTransactionStatus exception: ' . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
      * Verifikasi Signature Webhook Notification dari DOKU
      */
     public function verifyWebhookSignature(array $headers, string $rawBody, string $targetPath = '/api/payment/callback'): bool

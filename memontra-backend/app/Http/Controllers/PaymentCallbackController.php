@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Booking;
 use App\Services\DokuService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class PaymentCallbackController extends Controller
@@ -40,6 +41,12 @@ class PaymentCallbackController extends Controller
 
             if (!$orderId) {
                 return response()->json(['message' => 'Invoice number / Order ID not found'], 400);
+            }
+
+            // Simpan status pembayaran ke Cache agar booth kiosk Windows langsung mendeteksi pembayaran realtime
+            if (in_array(strtoupper($status), ['SUCCESS', 'SETTLEMENT', 'PAID'])) {
+                Cache::put("payment_status_{$orderId}", 'settlement', now()->addHours(2));
+                Log::info("Transaction #$orderId marked as SETTLEMENT in Cache");
             }
 
             // Jika transaksi untuk Booking Website (format: INV-MB-{id}-{timestamp})

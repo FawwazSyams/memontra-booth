@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Services\DokuService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -50,11 +51,38 @@ class PaymentController extends Controller
      */
     public function checkStatus($orderId)
     {
-        // Standar status check
+        // 1. Cek dari Cache (diset oleh webhook callback DOKU saat pembayaran sukses)
+        $cachedStatus = Cache::get("payment_status_{$orderId}");
+        if ($cachedStatus) {
+            return response()->json([
+                'gateway' => 'doku',
+                'order_id' => $orderId,
+                'transaction_status' => $cachedStatus,
+            ], 200);
+        }
+
+        // 2. Query status ke API DOKU jika belum ada di cache
+        $dokuStatus = $this->dokuService->checkTransactionStatus($orderId);
+        if ($dokuStatus) {
+            $normalizedStatus = in_array(strtoupper($dokuStatus), ['SUCCESS', 'SETTLEMENT', 'PAID'])
+                ? 'settlement'
+                : strtolower($dokuStatus);
+
+            if ($normalizedStatus === 'settlement') {
+                Cache::put("payment_status_{$orderId}", 'settlement', now()->addHours(2));
+            }
+
+            return response()->json([
+                'gateway' => 'doku',
+                'order_id' => $orderId,
+                'transaction_status' => $normalizedStatus,
+            ], 200);
+        }
+
         return response()->json([
             'gateway' => 'doku',
             'order_id' => $orderId,
-            'transaction_status' => 'pending', // Diubah jadi settlement saat webhook masuk / simulasi
+            'transaction_status' => 'pending',
         ], 200);
     }
 }
