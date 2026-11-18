@@ -87,4 +87,17 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Publishing to GitHub Releases v2.0.0..."
-          gh release create v2.0.0 memontra-booth-windows-v2.0.0.zip --clobber --title "Memontra Booth Windows v2.0.0 (Standalone)" --notes "Official standalone Windows release v2.0.0. Features: DOKU payment gateway integration, custom frame templates management, custom background styling, external camera device selector, and softfile framed photo download."
+          $tag = "v2.0.0"
+          $zip = "memontra-booth-windows-v2.0.0.zip"
+          $title = "Memontra Booth Windows v2.0.0 (Standalone)"
+          $notes = "Official standalone Windows release v2.0.0. Features: DOKU payment gateway integration, custom frame templates management, custom background styling, external camera device selector, and softfile framed photo download."
+
+          # Periksa apakah release sudah ada
+          $existing = gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists. Uploading zip asset with --clobber..."
+            gh release upload $tag $zip --clobber
+          } else {
+            Write-Host "Creating new GitHub Release $tag..."
+            gh release create $tag $zip --title $title --notes $notes
+          }
