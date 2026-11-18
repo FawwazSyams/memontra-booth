@@ -43,21 +43,28 @@ jobs:
           $releaseDir = "memontra_booth/build/windows/x64/runner/Release"
           Write-Host "Target Release Directory: $releaseDir"
 
-          # 1. Copy MSVC CRT runtime DLLs (vcruntime140.dll, vcruntime140_1.dll, msvcp140.dll, etc.)
-          $crtDlls = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT\*.dll"
-          if ($crtDlls) {
-            Write-Host "Found $($crtDlls.Count) CRT DLLs. Copying to release directory..."
-            Copy-Item $crtDlls.FullName -Destination $releaseDir -Force
+          # 1. Copy essential 64-bit C++ runtime DLLs from System32
+          $runtimeFiles = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll")
+          foreach ($file in $runtimeFiles) {
+            $src = "C:\Windows\System32\$file"
+            if (Test-Path $src) {
+              Copy-Item $src -Destination $releaseDir -Force
+              Write-Host "Copied $file from System32"
+            } else {
+              Write-Warning "Could not find $src"
+            }
           }
 
-          # 2. Copy official vc_redist.x64.exe installer into the folder as an offline backup
-          $redist = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\*\vc_redist.x64.exe" | Select-Object -First 1
-          if ($redist) {
-            Write-Host "Found $($redist.FullName). Copying as vc_redist.x64.exe..."
-            Copy-Item $redist.FullName -Destination "$releaseDir\vc_redist.x64.exe" -Force
+          # 2. Download official vc_redist.x64.exe installer into the folder as an offline backup
+          try {
+            Write-Host "Downloading official vc_redist.x64.exe..."
+            Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "$releaseDir\vc_redist.x64.exe"
+            Write-Host "Downloaded vc_redist.x64.exe successfully."
+          } catch {
+            Write-Warning "Failed to download vc_redist.x64.exe: $_"
           }
 
-          Write-Host "Contents of Release directory:"
+          Write-Host "Final Contents of Release directory:"
           Get-ChildItem $releaseDir | Select-Object Name, Length
 
       - name: Create Zip Package
