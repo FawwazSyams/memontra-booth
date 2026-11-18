@@ -87,4 +87,4 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Publishing to GitHub Releases v1.0.0..."
-          gh release create v1.0.0 memontra-booth-windows-v1.0.0.zip --clobber --title "Memontra Booth Windows v1.0.0 (Standalone)" --notes "Official standalone Windows release for Memontra Booth kiosk. Includes all bundled Visual C++ runtimes and offline installer. Ready to run directly on Windows 10/11."
+          gh release create v1.0.0 memontra-booth-windows-v1.0.0.zip --title "Memontra Booth Windows v1.0.0 (Standalone)" --notes "Official standalone Windows release for Memontra Booth kiosk. Includes all bundled Visual C++ runtimes and offline installer. Ready to run directly on Windows 10/11."
