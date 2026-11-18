@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    name: Build Windows Desktop Release
     runs-on: windows-latest
 
     steps:
@@ -17,38 +18,25 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Clean Stale Ephemeral Files
-        shell: pwsh
-        run: |
-          if (Test-Path memontra_booth/windows/flutter/ephemeral) {
-            Remove-Item -Recurse -Force memontra_booth/windows/flutter/ephemeral
-          }
-          if (Test-Path memontra_booth/windows/flutter/generated_plugins.cmake) {
-            Remove-Item -Force memontra_booth/windows/flutter/generated_plugins.cmake
-          }
+      - name: Ensure Windows Platform Files
+        working-directory: memontra_booth
+        run: flutter create --platforms=windows .
 
-      - name: Install Flutter Dependencies
+      - name: Install Dependencies
         working-directory: memontra_booth
         run: flutter pub get
 
-      - name: Build Windows Executable
+      - name: Build Windows App (Release)
         working-directory: memontra_booth
-        run: flutter build windows --release --verbose
+        run: flutter build windows --release
 
-      - name: Archive Windows Release
-        shell: pwsh
-        working-directory: memontra_booth/build/windows/x64/runner/Release
-        run: |
-          Compress-Archive -Path * -DestinationPath ../../../../../memontra-booth-windows.zip -Force
-
-      - name: Upload Windows App Binary
+      - name: Upload Windows Release Artifact
         uses: actions/upload-artifact@v4
         with:
           name: memontra-booth-windows
-          path: memontra-booth-windows.zip
+          path: memontra_booth/build/windows/x64/runner/Release/
           retention-days: 14
