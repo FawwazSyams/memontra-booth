@@ -16,9 +16,30 @@ Route::get('/', function () {
     ]);
 });
 
-// Google Authentication
-Route::get('/auth/google', [GoogleController::class, 'redirect']);
-Route::get('/auth/google/callback', [GoogleController::class, 'callback']);
+// Google Authentication (Jika Controller tersedia)
+if (class_exists(\App\Http\Controllers\Auth\GoogleController::class)) {
+    Route::get('/auth/google', [\App\Http\Controllers\Auth\GoogleController::class, 'redirect']);
+    Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleController::class, 'callback']);
+}
+
+// Debugging Helpers
+Route::get('/debug-error', function () {
+    $logFile = storage_path('logs/laravel.log');
+    if (file_exists($logFile)) {
+        $lines = file($logFile);
+        return response('<pre>' . htmlspecialchars(implode("", array_slice($lines, -100))) . '</pre>');
+    }
+    return 'Log file not found at: ' . $logFile;
+});
+
+Route::get('/test-db', function () {
+    try {
+        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        return 'DB Connected successfully: ' . \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
+    } catch (\Throwable $e) {
+        return 'DB Error: ' . $e->getMessage();
+    }
+});
 
 // =========================================================================
 // SOFTFILE DOWNLOAD ROUTES (HASIL FOTO + FRAME UNTUK CUSTOMER)
@@ -30,48 +51,54 @@ Route::get('/download/{sessionId}', function ($sessionId) {
 
     // 1. Coba ambil dari database jika database aktif
     try {
-        $session = Session::with('photos')->find($sessionId);
-        if ($session && $session->photos) {
-            $photos = $session->photos->sortBy('sequence_number');
+        if (class_exists(\App\Models\Session::class)) {
+            $session = Session::with('photos')->find($sessionId);
+            if ($session && $session->photos) {
+                $photos = $session->photos->sortBy('sequence_number');
+            }
         }
     } catch (\Throwable $e) {
-        Log::warning('DB error in /download route: ' . $e->getMessage());
+        // Fallback jika database belum aktif atau sesi belum tersimpan di DB
     }
 
     // 2. Fallback cerdas: Jika belum ada di database, cari file foto langsung dari storage disk
     if ($photos->isEmpty()) {
-        $diskPhotos = collect([]);
+        try {
+            $diskPhotos = collect([]);
 
-        // Cek file strip komposit
-        $stripPath = 'photos/strip_' . $sessionId . '.png';
-        if (Storage::disk('public')->exists($stripPath)) {
-            $diskPhotos->push((object)[
-                'id' => 'strip',
-                'session_id' => $sessionId,
-                'file_path' => $stripPath,
-                'sequence_number' => 0,
-            ]);
-        }
-
-        // Cek file-file pose foto di disk
-        $files = Storage::disk('public')->files('photos');
-        foreach ($files as $file) {
-            if (str_contains($file, $sessionId) && !str_contains($file, 'strip_')) {
-                // Ekstrak sequence number dari nama file jika ada
-                preg_match('/_pose_(\d+)_/', $file, $matches);
-                $seq = isset($matches[1]) ? (int)$matches[1] : 1;
-
+            // Cek file strip komposit
+            $stripPath = 'photos/strip_' . $sessionId . '.png';
+            if (Storage::disk('public')->exists($stripPath)) {
                 $diskPhotos->push((object)[
-                    'id' => md5($file),
+                    'id' => 'strip',
                     'session_id' => $sessionId,
-                    'file_path' => $file,
-                    'sequence_number' => $seq,
+                    'file_path' => $stripPath,
+                    'sequence_number' => 0,
                 ]);
             }
-        }
 
-        if ($diskPhotos->isNotEmpty()) {
-            $photos = $diskPhotos->sortBy('sequence_number');
+            // Cek file-file pose foto di disk
+            $files = Storage::disk('public')->files('photos');
+            foreach ($files as $file) {
+                if (str_contains($file, $sessionId) && !str_contains($file, 'strip_')) {
+                    // Ekstrak sequence number dari nama file jika ada
+                    preg_match('/_pose_(\d+)_/', $file, $matches);
+                    $seq = isset($matches[1]) ? (int)$matches[1] : 1;
+
+                    $diskPhotos->push((object)[
+                        'id' => md5($file),
+                        'session_id' => $sessionId,
+                        'file_path' => $file,
+                        'sequence_number' => $seq,
+                    ]);
+                }
+            }
+
+            if ($diskPhotos->isNotEmpty()) {
+                $photos = $diskPhotos->sortBy('sequence_number');
+            }
+        } catch (\Throwable $e) {
+            // Storage fallback scan error handling
         }
     }
 
@@ -243,4 +270,6 @@ Route::get('/download/{sessionId}/gif', function ($sessionId) {
     return redirect('/download/' . $sessionId . '/zip');
 });
 
-require __DIR__ . '/auth.php';
+if (file_exists(__DIR__ . '/auth.php') && class_exists(\App\Http\Controllers\Auth\AuthenticatedSessionController::class)) {
+    require __DIR__ . '/auth.php';
+}
