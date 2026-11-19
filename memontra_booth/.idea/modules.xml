@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/memontra_booth.iml" filepath="$PROJECT_DIR$/memontra_booth.iml" />
+      <module fileurl="file://$PROJECT_DIR$/android/memontra_booth_android.iml" filepath="$PROJECT_DIR$/android/memontra_booth_android.iml" />
+    </modules>
+  </component>
+</project>

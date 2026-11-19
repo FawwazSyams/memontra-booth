@@ -51,7 +51,13 @@ Route::get('/download/{sessionId}', function ($sessionId) {
 
     // 1. Coba ambil dari database jika database aktif
     try {
-        if (class_exists(\App\Models\Session::class)) {
+        if (class_exists(\App\Models\Photo::class)) {
+            $dbPhotos = Photo::where('session_id', $sessionId)->orderBy('sequence_number')->get();
+            if ($dbPhotos->isNotEmpty()) {
+                $photos = $dbPhotos;
+            }
+        }
+        if ($photos->isEmpty() && class_exists(\App\Models\Session::class)) {
             $session = Session::with('photos')->find($sessionId);
             if ($session && $session->photos) {
                 $photos = $session->photos->sortBy('sequence_number');
@@ -61,45 +67,125 @@ Route::get('/download/{sessionId}', function ($sessionId) {
         // Fallback jika database belum aktif atau sesi belum tersimpan di DB
     }
 
-    // 2. Fallback cerdas: Jika belum ada di database, cari file foto langsung dari storage disk
-    if ($photos->isEmpty()) {
-        try {
-            $diskPhotos = collect([]);
+    // 2. Fallback cerdas: Scan disk jika foto belum lengkap di database
+    try {
+        $diskPhotos = collect([]);
 
-            // Cek file strip komposit
-            $stripPath = 'photos/strip_' . $sessionId . '.png';
-            if (Storage::disk('public')->exists($stripPath)) {
+        // Cek file-file pose foto di disk
+        $files = Storage::disk('public')->files('photos');
+        foreach ($files as $file) {
+            if (str_contains($file, $sessionId) && !str_contains($file, 'strip_')) {
+                preg_match('/_pose_(\d+)_/', $file, $matches);
+                $seq = isset($matches[1]) ? (int)$matches[1] : 1;
+
                 $diskPhotos->push((object)[
+                    'id' => md5($file),
+                    'session_id' => $sessionId,
+                    'file_path' => $file,
+                    'sequence_number' => $seq,
+                ]);
+            }
+        }
+
+        if ($photos->isEmpty() && $diskPhotos->isNotEmpty()) {
+            $photos = $diskPhotos->sortBy('sequence_number');
+        }
+    } catch (\Throwable $e) {
+        // Storage fallback scan error handling
+    }
+
+    // 3. Selalu pastikan foto strip komposit + frame (sequence 0) diperiksa di disk
+    $hasStrip = $photos->contains('sequence_number', 0);
+    if (!$hasStrip) {
+        $stripCandidates = [
+            'photos/strip_' . $sessionId . '.png',
+            'photos/' . $sessionId . '_strip.png',
+        ];
+        foreach ($stripCandidates as $stripPath) {
+            if (Storage::disk('public')->exists($stripPath) || file_exists(storage_path('app/public/' . $stripPath))) {
+                $photos->prepend((object)[
                     'id' => 'strip',
                     'session_id' => $sessionId,
                     'file_path' => $stripPath,
                     'sequence_number' => 0,
                 ]);
+                $hasStrip = true;
+                break;
             }
+        }
+    }
 
-            // Cek file-file pose foto di disk
-            $files = Storage::disk('public')->files('photos');
-            foreach ($files as $file) {
-                if (str_contains($file, $sessionId) && !str_contains($file, 'strip_')) {
-                    // Ekstrak sequence number dari nama file jika ada
-                    preg_match('/_pose_(\d+)_/', $file, $matches);
-                    $seq = isset($matches[1]) ? (int)$matches[1] : 1;
+    // 4. Fallback Pembuatan Strip Otomatis: Jika strip belum ada tapi ada pose foto
+    if (!$hasStrip && $photos->isNotEmpty()) {
+        try {
+            $poseItems = $photos->where('sequence_number', '>', 0)->values();
+            if ($poseItems->isNotEmpty() && function_exists('imagecreatetruecolor')) {
+                $stripWidth = 1200;
+                $stripHeight = 3600;
+                $stripCanvas = imagecreatetruecolor($stripWidth, $stripHeight);
+                $white = imagecolorallocate($stripCanvas, 255, 255, 255);
+                imagefill($stripCanvas, 0, 0, $white);
 
-                    $diskPhotos->push((object)[
-                        'id' => md5($file),
+                $slotY = [185, 1190, 2190];
+                $slotW = 1020;
+                $slotH = 830;
+                $slotX = 90;
+
+                for ($i = 0; $i < min(3, count($poseItems)); $i++) {
+                    $item = $poseItems[$i];
+                    $pPath = storage_path('app/public/' . $item->file_path);
+                    if (file_exists($pPath)) {
+                        $pImg = @imagecreatefromjpeg($pPath) ?: @imagecreatefrompng($pPath);
+                        if ($pImg) {
+                            $origW = imagesx($pImg);
+                            $origH = imagesy($pImg);
+                            imagecopyresampled(
+                                $stripCanvas, $pImg,
+                                $slotX, $slotY[$i], 0, 0,
+                                $slotW, $slotH, $origW, $origH
+                            );
+                            imagedestroy($pImg);
+                        }
+                    }
+                }
+
+                // Coba muat frame overlay
+                $frameCandidates = [
+                    public_path('assets/frames/strip1.png'),
+                    base_path('resources/frames/strip1.png'),
+                    public_path('assets/frames/strip2.png'),
+                ];
+                foreach ($frameCandidates as $fc) {
+                    if (file_exists($fc)) {
+                        $fImg = @imagecreatefrompng($fc);
+                        if ($fImg) {
+                            imagecopyresampled(
+                                $stripCanvas, $fImg,
+                                0, 0, 0, 0,
+                                $stripWidth, $stripHeight, imagesx($fImg), imagesy($fImg)
+                            );
+                            imagedestroy($fImg);
+                            break;
+                        }
+                    }
+                }
+
+                $genStripPath = 'photos/strip_' . $sessionId . '.png';
+                $fullGenPath = storage_path('app/public/' . $genStripPath);
+                @mkdir(dirname($fullGenPath), 0775, true);
+                imagepng($stripCanvas, $fullGenPath);
+                imagedestroy($stripCanvas);
+
+                if (file_exists($fullGenPath)) {
+                    $photos->prepend((object)[
+                        'id' => 'strip',
                         'session_id' => $sessionId,
-                        'file_path' => $file,
-                        'sequence_number' => $seq,
+                        'file_path' => $genStripPath,
+                        'sequence_number' => 0,
                     ]);
                 }
             }
-
-            if ($diskPhotos->isNotEmpty()) {
-                $photos = $diskPhotos->sortBy('sequence_number');
-            }
-        } catch (\Throwable $e) {
-            // Storage fallback scan error handling
-        }
+        } catch (\Throwable $e) {}
     }
 
     return view('download_softfile', [
@@ -267,7 +353,12 @@ Route::get('/download/{sessionId}/zip', function ($sessionId) {
 
 // Unduh Animasi GIF Boomerang
 Route::get('/download/{sessionId}/gif', function ($sessionId) {
-    return redirect('/download/' . $sessionId . '/zip');
+    $gifFile = storage_path('app/public/photos/gif_' . $sessionId . '.gif');
+    if (file_exists($gifFile)) {
+        return response()->download($gifFile, 'Memontra-Boomerang-' . substr($sessionId, 0, 8) . '.gif');
+    }
+    // Arahkan ke galeri untuk memutar & mengunduh animasi GIF nyata via web
+    return redirect('/download/' . $sessionId . '#gifPlayer');
 });
 
 if (file_exists(__DIR__ . '/auth.php') && class_exists(\App\Http\Controllers\Auth\AuthenticatedSessionController::class)) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:camera/camera.dart';
 import '../theme/app_theme.dart';
+import '../services/frame_service.dart';
 import 'countdown_screen.dart';
 import 'review.dart';
 
@@ -353,11 +354,9 @@ class _PhotoSelectionScreenState extends State<PhotoSelectionScreen> {
             // Frame Image Graphic Overlay (IgnorePointer agar gesture drop tembus ke slot)
             Positioned.fill(
               child: IgnorePointer(
-                child: Image.asset(
+                child: FrameService.buildFrameOverlayWidget(
                   widget.frameImagePath,
                   fit: BoxFit.fill,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox.shrink(),
                 ),
               ),
             ),

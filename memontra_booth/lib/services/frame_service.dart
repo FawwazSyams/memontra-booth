@@ -205,6 +205,47 @@ class FrameService {
     return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
   }
 
+  /// Widget penampil frame overlay yang kompatibel dengan Asset bawaan maupun File Kustom dari disk
+  static Widget buildFrameOverlayWidget(
+    String? framePath, {
+    BoxFit fit = BoxFit.fill,
+    Widget? errorWidget,
+  }) {
+    if (framePath == null || framePath.isEmpty) {
+      return errorWidget ?? const SizedBox.shrink();
+    }
+
+    if (framePath.startsWith('assets/')) {
+      return Image.asset(
+        framePath,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) =>
+            errorWidget ?? const SizedBox.shrink(),
+      );
+    } else {
+      try {
+        final file = File(framePath);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) =>
+                errorWidget ?? const SizedBox.shrink(),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error loading custom frame file: $e');
+      }
+      // Fallback jika file kustom tidak ditemukan
+      return Image.asset(
+        'assets/frames/strip1.png',
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) =>
+            errorWidget ?? const SizedBox.shrink(),
+      );
+    }
+  }
+
   // =========================================================================
   // KIOSK THEME & CUSTOM BACKGROUND SETTINGS
   // =========================================================================

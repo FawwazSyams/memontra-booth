@@ -7,6 +7,7 @@ import 'package:camera/camera.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../services/printer_service.dart';
+import '../services/frame_service.dart';
 import 'output.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -232,11 +233,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
           // Frame Overlay Graphic
           Positioned.fill(
-            child: Image.asset(
+            child: FrameService.buildFrameOverlayWidget(
               frameImagePath,
               fit: BoxFit.fill,
-              errorBuilder: (context, error, stackTrace) =>
-                  const SizedBox.shrink(),
             ),
           ),
         ],

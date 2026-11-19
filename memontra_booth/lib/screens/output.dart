@@ -9,6 +9,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../services/printer_service.dart';
+import '../services/frame_service.dart';
 
 class OutputScreen extends StatefulWidget {
   final String sessionId;
@@ -91,6 +92,17 @@ class _OutputScreenState extends State<OutputScreen> {
         frameAssetPath: widget.frameImagePath ?? 'assets/frames/strip1.png',
         filterMatrix: widget.filterMatrix,
       );
+
+      // Pastikan foto strip komposit ter-upload ke backend untuk softfile download pelanggan
+      PrinterService.generateSingleStripImage(
+        photos: widget.selectedPhotos,
+        frameAssetPath: widget.frameImagePath ?? 'assets/frames/strip1.png',
+        filterMatrix: widget.filterMatrix,
+      ).then((singleStripBytes) {
+        ApiService.uploadStrip(widget.sessionId, singleStripBytes);
+      }).catchError((e) {
+        debugPrint('Output background uploadStrip note: $e');
+      });
 
       if (!mounted) return;
       setState(() {
@@ -341,11 +353,9 @@ class _OutputScreenState extends State<OutputScreen> {
           // Frame Overlay Graphic
           if (widget.frameImagePath != null)
             Positioned.fill(
-              child: Image.asset(
-                widget.frameImagePath!,
+              child: FrameService.buildFrameOverlayWidget(
+                widget.frameImagePath,
                 fit: BoxFit.fill,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.shrink(),
               ),
             ),
         ],
