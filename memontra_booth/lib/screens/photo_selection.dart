@@ -306,9 +306,20 @@ class _PhotoSelectionScreenState extends State<PhotoSelectionScreen> {
 
   // Panel Kiri: Frame Strip Lengkap dengan 3 Slot DragTarget
   Widget _buildInteractiveStripFrame() {
+    const double stripW = 240.0;
+    const double stripH = 720.0; // Rasio 1200:3600 = 1:3 presisi
+
+    // Rasio proporsional persis dengan kanvas cetak PrinterService (1200x3600)
+    const double slotX = stripW * (90 / 1200); // 18.0
+    const double slotW = stripW * (1020 / 1200); // 204.0
+    const double slotH = stripH * (830 / 3600); // 166.0
+    const double slot1Y = stripH * (185 / 3600); // 37.0
+    const double slot2Y = stripH * (1190 / 3600); // 238.0
+    const double slot3Y = stripH * (2190 / 3600); // 440.0
+
     return Container(
-      width: 250,
-      height: 700,
+      width: stripW,
+      height: stripH,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -326,28 +337,28 @@ class _PhotoSelectionScreenState extends State<PhotoSelectionScreen> {
           children: [
             // Slot 0 (Atas)
             Positioned(
-              top: 20,
-              left: 15,
-              width: 220,
-              height: 180,
+              top: slot1Y,
+              left: slotX,
+              width: slotW,
+              height: slotH,
               child: _buildFrameSlot(0),
             ),
 
             // Slot 1 (Tengah)
             Positioned(
-              top: 220,
-              left: 15,
-              width: 220,
-              height: 180,
+              top: slot2Y,
+              left: slotX,
+              width: slotW,
+              height: slotH,
               child: _buildFrameSlot(1),
             ),
 
             // Slot 2 (Bawah)
             Positioned(
-              top: 420,
-              left: 15,
-              width: 220,
-              height: 180,
+              top: slot3Y,
+              left: slotX,
+              width: slotW,
+              height: slotH,
               child: _buildFrameSlot(2),
             ),
 

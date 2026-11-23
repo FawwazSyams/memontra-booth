@@ -37,7 +37,6 @@ class BoothController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Fallback getActiveEvent: ' . $e->getMessage());
 
-            // Fallback aman jika database belum connect / tabel events belum ada
             return response()->json([
                 'id' => 1,
                 'name' => 'Memontra Photobooth Event',
@@ -71,7 +70,6 @@ class BoothController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Fallback startSession: ' . $e->getMessage());
 
-            // Fallback aman: kembalikan session ID valid agar booth tetap bisa beroperasi
             return response()->json([
                 'message' => 'Sesi berhasil dimulai (standalone mode)',
                 'data' => [
@@ -90,7 +88,7 @@ class BoothController extends Controller
     {
         $request->validate([
             'sequence_number' => 'required|integer',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+            'photo' => 'nullable|file|max:30720',
             'photo_base64' => 'nullable|string',
         ]);
 
@@ -149,7 +147,6 @@ class BoothController extends Controller
         } catch (\Throwable $e) {
             Log::warning('DB error during uploadPhoto (file saved safely to disk): ' . $e->getMessage());
 
-            // Tetap return sukses karena file foto sudah tersimpan di disk
             return response()->json([
                 'message' => 'Foto ke-' . $seq . ' berhasil disimpan di disk',
                 'file_path' => $filename
@@ -159,36 +156,45 @@ class BoothController extends Controller
 
     /**
      * 4. Upload Hasil Foto Strip + Frame (Komposit Final) untuk Softfile Download
+     * Menyimpan sekaligus sebagai PNG dan JPG agar selalu kompatibel & cepat dimuat
      */
     public function uploadStrip(Request $request, $sessionId)
     {
         $request->validate([
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:25600',
+            'photo' => 'nullable|file|max:30720',
             'photo_base64' => 'nullable|string',
         ]);
 
-        $filename = 'photos/strip_' . $sessionId . '.png';
+        $pngName = 'photos/strip_' . $sessionId . '.png';
+        $jpgName = 'photos/strip_' . $sessionId . '.jpg';
 
         try {
+            $bytes = null;
             if ($request->hasFile('photo')) {
-                Storage::disk('public')->putFileAs('photos', $request->file('photo'), basename($filename));
+                $bytes = file_get_contents($request->file('photo')->getRealPath());
             } elseif ($request->filled('photo_base64')) {
                 $image = $request->photo_base64;
                 if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
                     $image = substr($image, strpos($image, ',') + 1);
                 }
                 $image = str_replace(' ', '+', $image);
-                $decoded = base64_decode($image);
-                Storage::disk('public')->put($filename, $decoded);
-            } else {
-                return response()->json(['message' => 'Data foto strip tidak valid atau kosong.'], 400);
+                $bytes = base64_decode($image);
             }
+
+            if (!$bytes) {
+                return response()->json(['message' => 'Data foto strip kosong.'], 400);
+            }
+
+            // Simpan keduanya di storage public disk
+            Storage::disk('public')->put($pngName, $bytes);
+            Storage::disk('public')->put($jpgName, $bytes);
+
         } catch (\Throwable $e) {
             Log::error('Error saving strip file to disk: ' . $e->getMessage());
             return response()->json(['message' => 'Gagal menyimpan foto strip ke disk.'], 500);
         }
 
-        // Coba simpan ke database (jika database tersedia)
+        // Coba sinkronisasi record database
         try {
             $session = Session::find($sessionId);
             if (!$session) {
@@ -212,7 +218,7 @@ class BoothController extends Controller
 
             $photo = Photo::create([
                 'session_id' => $sessionId,
-                'file_path' => $filename,
+                'file_path' => $pngName,
                 'sequence_number' => 0
             ]);
 
@@ -221,11 +227,11 @@ class BoothController extends Controller
                 'data' => $photo
             ], 201);
         } catch (\Throwable $e) {
-            Log::warning('DB error during uploadStrip (file saved safely to disk): ' . $e->getMessage());
+            Log::warning('DB error during uploadStrip: ' . $e->getMessage());
 
             return response()->json([
                 'message' => 'Foto strip komposit + frame berhasil disimpan di disk',
-                'file_path' => $filename
+                'file_path' => $pngName
             ], 201);
         }
     }

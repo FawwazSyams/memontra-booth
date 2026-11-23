@@ -29,10 +29,16 @@ class PaymentController extends Controller
         $result = $this->dokuService->createQris($orderId, $grossAmount);
 
         if ($result['status'] === 'success') {
+            $tokenId = $result['token_id'] ?? null;
+            if ($tokenId) {
+                Cache::put("doku_token_{$orderId}", $tokenId, now()->addMinutes(30));
+            }
+
             return response()->json([
                 'status' => 'success',
                 'gateway' => 'doku',
                 'order_id' => $orderId,
+                'token_id' => $tokenId,
                 'qr_string' => $result['qr_string'] ?? null,
                 'qr_url' => $result['qr_url'] ?? null,
                 'amount' => $grossAmount,
@@ -49,7 +55,7 @@ class PaymentController extends Controller
     /**
      * Cek status pembayaran ke DOKU (Polling oleh Flutter Booth)
      */
-    public function checkStatus($orderId)
+    public function checkStatus(Request $request, $orderId)
     {
         // 1. Cek dari Cache (diset oleh webhook callback DOKU saat pembayaran sukses)
         $cachedStatus = Cache::get("payment_status_{$orderId}");
@@ -61,8 +67,10 @@ class PaymentController extends Controller
             ], 200);
         }
 
-        // 2. Query status ke API DOKU jika belum ada di cache
-        $dokuStatus = $this->dokuService->checkTransactionStatus($orderId);
+        // 2. Query status ke API DOKU (bisa via token_id atau invoice_number)
+        $tokenId = $request->query('token_id') ?? Cache::get("doku_token_{$orderId}");
+        $dokuStatus = $this->dokuService->checkTransactionStatus($orderId, $tokenId);
+
         if ($dokuStatus) {
             $normalizedStatus = in_array(strtoupper($dokuStatus), ['SUCCESS', 'SETTLEMENT', 'PAID'])
                 ? 'settlement'

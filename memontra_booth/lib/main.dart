@@ -134,22 +134,11 @@ class _AttractScreenState extends State<AttractScreen> {
     if (_isCameraReady &&
         _cameraController != null &&
         _cameraController!.value.isInitialized) {
-      final double cameraAspect = _cameraController!.value.aspectRatio;
-
       return Stack(
         fit: StackFit.expand,
         children: [
-          // Live Camera Stream dengan aspect ratio natural (tanpa zoom berlebih)
-          SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: 100 * cameraAspect,
-                height: 100,
-                child: CameraPreview(_cameraController!),
-              ),
-            ),
-          ),
+          // Live Camera Stream dengan aspect ratio natural anti-gepeng
+          CameraService.buildResponsiveCameraPreview(_cameraController!),
 
           // Lapisan tipis agar logo dan tombol tetap kontras dan terbaca jelas
           Container(

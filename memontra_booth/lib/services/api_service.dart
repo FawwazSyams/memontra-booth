@@ -100,10 +100,34 @@ class ApiService {
 
   /// Upload Hasil Foto Strip + Frame (Komposit Final) untuk Softfile Download
   static Future<bool> uploadStrip(String sessionId, Uint8List stripBytes) async {
+    // 1. Coba upload via Multipart Form-Data (paling cepat & aman dari batas payload server)
     try {
-      String base64Strip = base64Encode(stripBytes);
+      final uri = Uri.parse('$baseUrl/sessions/$sessionId/strip');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers['Accept'] = 'application/json';
+      request.fields['sequence_number'] = '0';
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'photo',
+          stripBytes,
+          filename: 'strip_$sessionId.jpg',
+        ),
+      );
 
-      // Coba upload ke endpoint khusus /strip
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 25));
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 201) {
+        debugPrint('Upload foto strip + frame via Multipart sukses!');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Multipart upload note: $e, beralih ke Base64 fallback');
+    }
+
+    // 2. Fallback: Base64 JSON ke /strip
+    try {
+      final base64Strip = base64Encode(stripBytes);
       final response = await http.post(
         Uri.parse('$baseUrl/sessions/$sessionId/strip'),
         headers: {
@@ -111,17 +135,17 @@ class ApiService {
           'Accept': 'application/json',
         },
         body: jsonEncode({
-          'sequence_number': 0, // sequence_number 0 menandakan foto strip komposit final
+          'sequence_number': 0,
           'photo_base64': base64Strip,
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint('Upload foto strip + frame komposit sukses!');
+        debugPrint('Upload foto strip via Base64 JSON sukses!');
         return true;
       }
 
-      // Fallback: upload ke /photos biasa dengan sequence_number: 0
+      // 3. Fallback kedua: Base64 JSON ke /photos
       final fallbackResponse = await http.post(
         Uri.parse('$baseUrl/sessions/$sessionId/photos'),
         headers: {
@@ -132,9 +156,10 @@ class ApiService {
           'sequence_number': 0,
           'photo_base64': base64Strip,
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 25));
 
-      return fallbackResponse.statusCode == 200 || fallbackResponse.statusCode == 201;
+      return fallbackResponse.statusCode == 200 ||
+          fallbackResponse.statusCode == 201;
     } catch (e) {
       debugPrint('Error upload foto strip komposit: $e');
       return false;
@@ -161,6 +186,7 @@ class ApiService {
         if (data['status'] == 'success') {
           return {
             'order_id': data['order_id'],
+            'token_id': data['token_id'],
             'qr_string': data['qr_string'],
             'qr_url': data['qr_url'],
             'amount': data['amount'] ?? amount,
@@ -175,10 +201,14 @@ class ApiService {
   }
 
   /// Cek status pembayaran ke backend (Polling)
-  static Future<String> checkPaymentStatus(String orderId) async {
+  static Future<String> checkPaymentStatus(String orderId, {String? tokenId}) async {
     try {
+      final uriStr = tokenId != null && tokenId.isNotEmpty
+          ? '$paymentUrl/status/$orderId?token_id=$tokenId'
+          : '$paymentUrl/status/$orderId';
+
       final response = await http.get(
-        Uri.parse('$paymentUrl/status/$orderId'),
+        Uri.parse(uriStr),
         headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 class CameraService {
   static const String _configFile = 'camera_settings.json';
@@ -92,7 +93,6 @@ class CameraService {
     }
 
     // 2. Prioritaskan kamera eksternal (Webcam USB, Cam Link, dsb.)
-    // Pada Windows, kamera bawaan laptop biasanya mengandung kata 'integrated' / 'internal' / 'front'
     final externalCamera = cameras.firstWhere(
       (c) {
         final name = c.name.toLowerCase();
@@ -125,5 +125,40 @@ class CameraService {
     }
 
     return '$rawName$type';
+  }
+
+  /// Render live camera stream responsif & bebas gepeng untuk segala ukuran layar Windows/monitor
+  static Widget buildResponsiveCameraPreview(CameraController controller) {
+    if (!controller.value.isInitialized) {
+      return const SizedBox.shrink();
+    }
+
+    final previewSize = controller.value.previewSize;
+    double naturalAspect = controller.value.aspectRatio;
+
+    // Pada desktop/laptop Windows & webcam USB, rasio fisik sensor adalah Landscape (W > H)
+    if (previewSize != null && previewSize.height > 0) {
+      final double calculated = previewSize.width / previewSize.height;
+      naturalAspect = calculated > 1.0 ? calculated : (1.0 / calculated);
+    } else if (naturalAspect < 1.0) {
+      naturalAspect = 1.0 / naturalAspect;
+    }
+
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: 100 * naturalAspect,
+          height: 100,
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: naturalAspect,
+              child: controller.buildPreview(),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -42,6 +42,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // State QRIS DOKU
   bool _isLoadingQris = true;
   String? _orderId;
+  String? _tokenId;
   String? _qrisData; // Bisa berupa raw EMVCo qr_string atau url
   String? _qrisErrorMessage;
 
@@ -80,6 +81,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final res = await ApiService.generateQrisPayment(amount: _priceAmount);
       if (res != null && mounted) {
         final orderId = res['order_id'] as String?;
+        final tokenId = res['token_id'] as String?;
         final qrString = res['qr_string'] as String?;
         final qrUrl = res['qr_url'] as String?;
 
@@ -91,13 +93,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
         setState(() {
           _orderId = orderId;
+          _tokenId = tokenId;
           _qrisData = dataToRender;
           _isLoadingQris = false;
         });
 
         // Mulai polling cek status pembayaran secara otomatis
         if (orderId != null) {
-          _startStatusPolling(orderId);
+          _startStatusPolling(orderId, tokenId);
         }
       } else {
         // Fallback jika backend offline / belum terhubung
@@ -106,6 +109,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               'DOKU-${DateTime.now().millisecondsSinceEpoch}';
           setState(() {
             _orderId = fallbackOrderId;
+            _tokenId = null;
             _qrisData =
                 '00020101021226600016ID.CO.DOKU.WWW01189360099900000000010215${fallbackOrderId}5204581253033605405250005802ID5914MEMONTRA BOOTH6007JAKARTA62070703A016304';
             _isLoadingQris = false;
@@ -125,7 +129,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   /// Polling berkala (setiap 2.5 detik) untuk mengecek apakah pelanggan sudah scan & bayar
-  void _startStatusPolling(String orderId) {
+  void _startStatusPolling(String orderId, [String? tokenId]) {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (timer) async {
       if (!mounted || _isPaid) {
@@ -133,7 +137,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
 
-      final status = await ApiService.checkPaymentStatus(orderId);
+      final status = await ApiService.checkPaymentStatus(orderId, tokenId: tokenId ?? _tokenId);
       if (status == 'settlement' || status == 'SUCCESS' || status == 'paid') {
         timer.cancel();
         _onPaymentSuccess();

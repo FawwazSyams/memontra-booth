@@ -16,7 +16,7 @@ Route::get('/', function () {
     ]);
 });
 
-// Google Authentication (Jika Controller tersedia)
+// Google Authentication
 if (class_exists(\App\Http\Controllers\Auth\GoogleController::class)) {
     Route::get('/auth/google', [\App\Http\Controllers\Auth\GoogleController::class, 'redirect']);
     Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleController::class, 'callback']);
@@ -99,7 +99,10 @@ Route::get('/download/{sessionId}', function ($sessionId) {
     if (!$hasStrip) {
         $stripCandidates = [
             'photos/strip_' . $sessionId . '.png',
+            'photos/strip_' . $sessionId . '.jpg',
+            'photos/strip_' . $sessionId . '.jpeg',
             'photos/' . $sessionId . '_strip.png',
+            'photos/' . $sessionId . '_strip.jpg',
         ];
         foreach ($stripCandidates as $stripPath) {
             if (Storage::disk('public')->exists($stripPath) || file_exists(storage_path('app/public/' . $stripPath))) {
@@ -149,10 +152,12 @@ Route::get('/download/{sessionId}', function ($sessionId) {
                     }
                 }
 
-                // Coba muat frame overlay
+                // Coba muat frame overlay dari berbagai lokasi kandidat
                 $frameCandidates = [
-                    public_path('assets/frames/strip1.png'),
                     base_path('resources/frames/strip1.png'),
+                    public_path('assets/frames/strip1.png'),
+                    base_path('../public_html/assets/frames/strip1.png'),
+                    base_path('resources/frames/strip2.png'),
                     public_path('assets/frames/strip2.png'),
                 ];
                 foreach ($frameCandidates as $fc) {
@@ -170,22 +175,25 @@ Route::get('/download/{sessionId}', function ($sessionId) {
                     }
                 }
 
-                $genStripPath = 'photos/strip_' . $sessionId . '.png';
-                $fullGenPath = storage_path('app/public/' . $genStripPath);
-                @mkdir(dirname($fullGenPath), 0775, true);
-                imagepng($stripCanvas, $fullGenPath);
+                $genStripPng = storage_path('app/public/photos/strip_' . $sessionId . '.png');
+                $genStripJpg = storage_path('app/public/photos/strip_' . $sessionId . '.jpg');
+                @mkdir(dirname($genStripPng), 0775, true);
+                imagepng($stripCanvas, $genStripPng);
+                imagejpeg($stripCanvas, $genStripJpg, 90);
                 imagedestroy($stripCanvas);
 
-                if (file_exists($fullGenPath)) {
+                if (file_exists($genStripPng)) {
                     $photos->prepend((object)[
                         'id' => 'strip',
                         'session_id' => $sessionId,
-                        'file_path' => $genStripPath,
+                        'file_path' => 'photos/strip_' . $sessionId . '.png',
                         'sequence_number' => 0,
                     ]);
                 }
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            Log::warning('Fallback strip auto-composite note: ' . $e->getMessage());
+        }
     }
 
     return view('download_softfile', [
@@ -198,7 +206,10 @@ Route::get('/download/{sessionId}', function ($sessionId) {
 Route::get('/download/{sessionId}/view-strip', function ($sessionId) {
     $candidates = [
         storage_path('app/public/photos/strip_' . $sessionId . '.png'),
+        storage_path('app/public/photos/strip_' . $sessionId . '.jpg'),
+        storage_path('app/public/photos/strip_' . $sessionId . '.jpeg'),
         storage_path('app/photos/strip_' . $sessionId . '.png'),
+        storage_path('app/photos/strip_' . $sessionId . '.jpg'),
     ];
 
     try {
@@ -210,8 +221,9 @@ Route::get('/download/{sessionId}/view-strip', function ($sessionId) {
 
     foreach ($candidates as $file) {
         if (file_exists($file)) {
+            $isPng = str_ends_with(strtolower($file), '.png');
             return response()->file($file, [
-                'Content-Type' => 'image/png',
+                'Content-Type' => $isPng ? 'image/png' : 'image/jpeg',
                 'Cache-Control' => 'public, max-age=86400',
             ]);
         }
@@ -259,7 +271,10 @@ Route::get('/download/{sessionId}/view-photo/{photoId}', function ($sessionId, $
 Route::get('/download/{sessionId}/strip', function ($sessionId) {
     $candidates = [
         storage_path('app/public/photos/strip_' . $sessionId . '.png'),
+        storage_path('app/public/photos/strip_' . $sessionId . '.jpg'),
+        storage_path('app/public/photos/strip_' . $sessionId . '.jpeg'),
         storage_path('app/photos/strip_' . $sessionId . '.png'),
+        storage_path('app/photos/strip_' . $sessionId . '.jpg'),
     ];
 
     try {
@@ -271,7 +286,8 @@ Route::get('/download/{sessionId}/strip', function ($sessionId) {
 
     foreach ($candidates as $filePath) {
         if (file_exists($filePath)) {
-            $downloadName = 'Memontra-PhotoStrip-' . substr($sessionId, 0, 8) . '.png';
+            $ext = pathinfo($filePath, PATHINFO_EXTENSION);
+            $downloadName = 'Memontra-PhotoStrip-' . substr($sessionId, 0, 8) . '.' . $ext;
             return response()->download($filePath, $downloadName);
         }
     }
@@ -324,9 +340,16 @@ Route::get('/download/{sessionId}/zip', function ($sessionId) {
 
     if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
         // 1. Coba masukkan strip
-        $stripFile = storage_path('app/public/photos/strip_' . $sessionId . '.png');
-        if (file_exists($stripFile)) {
-            $zip->addFile($stripFile, 'Memontra-FotoStrip-Frame.png');
+        $stripCandidates = [
+            storage_path('app/public/photos/strip_' . $sessionId . '.png'),
+            storage_path('app/public/photos/strip_' . $sessionId . '.jpg'),
+        ];
+        foreach ($stripCandidates as $stripFile) {
+            if (file_exists($stripFile)) {
+                $ext = pathinfo($stripFile, PATHINFO_EXTENSION);
+                $zip->addFile($stripFile, 'Memontra-FotoStrip-Frame.' . $ext);
+                break;
+            }
         }
 
         // 2. Masukkan foto-foto pose sesi ini

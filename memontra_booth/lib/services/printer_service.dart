@@ -8,6 +8,7 @@ import 'package:camera/camera.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:image/image.dart' as img;
 
 class PrinterService {
   /// Ukuran kanvas 4R standar (4 x 6 inch pada 600 DPI = 2400 x 3600 px)
@@ -252,6 +253,37 @@ class PrinterService {
     );
 
     return byteData!.buffer.asUint8List();
+  }
+
+  /// Generate 1 strip foto tunggal terkompresi JPEG (~500KB) untuk upload softfile cepat & stabil
+  static Future<Uint8List> generateSingleStripJpeg({
+    required List<XFile> photos,
+    required String frameAssetPath,
+    List<double>? filterMatrix,
+    Color? backgroundColor,
+    int quality = 88,
+  }) async {
+    final pngBytes = await generateSingleStripImage(
+      photos: photos,
+      frameAssetPath: frameAssetPath,
+      filterMatrix: filterMatrix,
+      backgroundColor: backgroundColor,
+    );
+
+    try {
+      final decodedImage = img.decodeImage(pngBytes);
+      if (decodedImage != null) {
+        final jpgBytes = img.encodeJpg(decodedImage, quality: quality);
+        debugPrint(
+          'Single strip JPEG size: ${(jpgBytes.length / 1024).toStringAsFixed(1)} KB (PNG sebelumnya ${(pngBytes.lengthInBytes / 1024).toStringAsFixed(1)} KB)',
+        );
+        return Uint8List.fromList(jpgBytes);
+      }
+    } catch (e) {
+      debugPrint('Error re-encoding strip to JPEG: $e');
+    }
+
+    return pngBytes;
   }
 
   /// Helper untuk memuat gambar frame baik dari Flutter Assets maupun File Sistem Windows

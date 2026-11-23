@@ -145,7 +145,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
     // Render dan upload Hasil Foto Strip + Frame (Komposit Final) untuk softfile download
     try {
-      final stripBytes = await PrinterService.generateSingleStripImage(
+      final stripBytes = await PrinterService.generateSingleStripJpeg(
         photos: widget.photos,
         frameAssetPath: widget.frameImagePath,
         filterMatrix: _filters[_selectedFilterIndex]['matrix'],

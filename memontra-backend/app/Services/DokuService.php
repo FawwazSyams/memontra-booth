@@ -85,7 +85,6 @@ class DokuService
             ],
         ];
 
-        // Jika kredensial masih demo/sandbox placeholder, buat link simulasi aman
         if (str_contains($this->clientId, 'DEMO') || empty($this->secretKey)) {
             Log::info('DOKU Mock Checkout generated for:', ['order_id' => $orderId, 'amount' => $amount]);
             return [
@@ -99,9 +98,12 @@ class DokuService
 
         try {
             $headers = $this->generateHeaders($targetPath, $payload);
+            $rawBody = json_encode($payload, JSON_UNESCAPED_SLASHES);
+
             $response = Http::withHeaders($headers)
+                ->withBody($rawBody, 'application/json')
                 ->timeout(15)
-                ->post($this->baseUrl . $targetPath, $payload);
+                ->post($this->baseUrl . $targetPath);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -138,6 +140,7 @@ class DokuService
 
     /**
      * Buat Transaksi QRIS DOKU (Untuk Photobooth Kiosk Windows)
+     * Menghasilkan string QRIS EMVCo resmi Bank Indonesia yang valid di-scan semua m-banking & e-wallet
      */
     public function createQris(string $orderId, int $amount): array
     {
@@ -151,7 +154,7 @@ class DokuService
                 'auto_redirect' => true,
             ],
             'payment' => [
-                'payment_due_date' => 15, // 15 menit masa berlaku QRIS stand
+                'payment_due_date' => 15, // 15 menit masa berlaku QRIS booth
                 'payment_method_types' => ['QRIS'],
             ],
             'customer' => [
@@ -160,7 +163,7 @@ class DokuService
             ],
         ];
 
-        // Jika kredensial masih demo/sandbox placeholder, buat QRIS string simulasi yang valid
+        // Jika kredensial masih demo/sandbox placeholder
         if (str_contains($this->clientId, 'DEMO') || empty($this->secretKey)) {
             Log::info('DOKU Mock QRIS generated for order:', ['order_id' => $orderId, 'amount' => $amount]);
             $mockQrString = "00020101021226600016ID.CO.DOKU.WWW01189360099900000000010215{$orderId}5204581253033605405{$amount}5802ID5914MEMONTRA BOOTH6007JAKARTA62070703A016304";
@@ -178,21 +181,54 @@ class DokuService
 
         try {
             $headers = $this->generateHeaders($targetPath, $payload);
+            $rawBody = json_encode($payload, JSON_UNESCAPED_SLASHES);
+
             $response = Http::withHeaders($headers)
+                ->withBody($rawBody, 'application/json')
                 ->timeout(15)
-                ->post($this->baseUrl . $targetPath, $payload);
+                ->post($this->baseUrl . $targetPath);
 
             if ($response->successful()) {
                 $data = $response->json();
-                $paymentUrl = $data['response']['payment']['url'] ?? null;
-                $qrString = $data['response']['payment']['qr_string'] ?? $paymentUrl;
+                $tokenId = $data['response']['payment']['token_id'] ?? null;
+                $checkoutUrl = $data['response']['payment']['url'] ?? null;
+
+                $qrString = null;
+
+                // Ekstrak string QRIS EMVCo resmi Bank Indonesia dari Checkout DOKU
+                if ($tokenId) {
+                    try {
+                        $qrResponse = Http::withHeaders([
+                            'Content-Type' => 'application/json',
+                            'Authorization' => 'bearer authnologin',
+                            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                        ])->timeout(10)->post("https://checkout.doku.com/checkout/v1/payment/$tokenId/generate-qris", [
+                            'token_id' => $tokenId
+                        ]);
+
+                        if ($qrResponse->successful()) {
+                            $qrData = $qrResponse->json();
+                            $qrString = $qrData['qr_code'] ?? null;
+                            Log::info("DOKU Native QRIS EMVCo generated successfully for order: $orderId");
+                        }
+                    } catch (\Exception $qe) {
+                        Log::warning("DOKU generate-qris sub-request warning: " . $qe->getMessage());
+                    }
+                }
+
+                // Fallback jika qrString belum terisi dari endpoint generate-qris
+                if (empty($qrString)) {
+                    $qrString = $data['response']['payment']['qr_string'] ?? $checkoutUrl;
+                }
 
                 return [
                     'status' => 'success',
                     'gateway' => 'doku',
                     'order_id' => $orderId,
+                    'token_id' => $tokenId,
                     'qr_string' => $qrString,
-                    'qr_url' => $paymentUrl,
+                    'checkout_url' => $checkoutUrl,
+                    'qr_url' => "https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=" . urlencode($qrString),
                     'amount' => $amount,
                     'raw_response' => $data,
                 ];
@@ -210,6 +246,7 @@ class DokuService
             ];
 
         } catch (\Exception $e) {
+            Log::error('DOKU createQris Exception: ' . $e->getMessage());
             return [
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -218,16 +255,58 @@ class DokuService
     }
 
     /**
-     * Cek status transaksi langsung ke API DOKU
+     * Cek status transaksi langsung ke API DOKU (support token_id dan invoice_number)
      */
-    public function checkTransactionStatus(string $orderId): ?string
+    public function checkTransactionStatus(string $orderId, ?string $tokenId = null): ?string
     {
-        $targetPath = '/orders/v1/status/' . $orderId;
+        // 1. Cek langsung via token_id di check-status endpoint (paling akurat & instan untuk QRIS)
+        if ($tokenId) {
+            try {
+                $statusResp = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Authorization' => 'bearer authnologin',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                ])->timeout(6)->post("https://checkout.doku.com/checkout/v1/payment/$tokenId/check-status", [
+                    'token_id' => $tokenId
+                ]);
 
+                if ($statusResp->successful()) {
+                    $statusData = $statusResp->json();
+                    $rawStatus = strtoupper($statusData['status'] ?? '');
+                    if ($rawStatus === 'SUCCESS' || $rawStatus === 'PAID') {
+                        return 'SUCCESS';
+                    } elseif ($rawStatus === 'PENDING') {
+                        return 'PENDING';
+                    } elseif ($rawStatus === 'FAILED' || $rawStatus === 'EXPIRED') {
+                        return 'FAILED';
+                    }
+                }
+            } catch (\Exception $te) {
+                Log::warning("DOKU check-status token_id exception: " . $te->getMessage());
+            }
+        }
+
+        // 2. Fallback: Cek via DOKU Orders API resmi
+        $targetPath = '/orders/v1/status/' . $orderId;
         try {
-            $headers = $this->generateHeaders($targetPath, []);
+            $requestId = (string) Str::uuid();
+            $timestamp = gmdate('Y-m-d\TH:i:s\Z');
+            $component = "Client-Id:" . $this->clientId . "\n"
+                . "Request-Id:" . $requestId . "\n"
+                . "Request-Timestamp:" . $timestamp . "\n"
+                . "Request-Target:" . $targetPath;
+            $signature = 'HMACSHA256=' . base64_encode(hash_hmac('sha256', $component, $this->secretKey, true));
+
+            $headers = [
+                'Client-Id' => $this->clientId,
+                'Request-Id' => $requestId,
+                'Request-Timestamp' => $timestamp,
+                'Signature' => $signature,
+                'Accept' => 'application/json',
+            ];
+
             $response = Http::withHeaders($headers)
-                ->timeout(10)
+                ->timeout(6)
                 ->get($this->baseUrl . $targetPath);
 
             if ($response->successful()) {
@@ -238,7 +317,7 @@ class DokuService
                     ?? null;
             }
         } catch (\Exception $e) {
-            Log::warning('DOKU checkTransactionStatus exception: ' . $e->getMessage());
+            Log::warning('DOKU checkTransactionStatus orders exception: ' . $e->getMessage());
         }
 
         return null;

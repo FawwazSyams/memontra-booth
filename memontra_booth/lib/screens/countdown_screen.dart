@@ -245,17 +245,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
     if (_isCameraReady &&
         _cameraController != null &&
         _cameraController!.value.isInitialized) {
-      final cameraAspect = _cameraController!.value.aspectRatio;
-      return SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: 100 * cameraAspect,
-            height: 100,
-            child: CameraPreview(_cameraController!),
-          ),
-        ),
-      );
+      return CameraService.buildResponsiveCameraPreview(_cameraController!);
     } else if (_isSimulatedCamera) {
       return Container(
         color: const Color(0xFF1E293B),

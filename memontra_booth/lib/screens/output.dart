@@ -94,7 +94,7 @@ class _OutputScreenState extends State<OutputScreen> {
       );
 
       // Pastikan foto strip komposit ter-upload ke backend untuk softfile download pelanggan
-      PrinterService.generateSingleStripImage(
+      PrinterService.generateSingleStripJpeg(
         photos: widget.selectedPhotos,
         frameAssetPath: widget.frameImagePath ?? 'assets/frames/strip1.png',
         filterMatrix: widget.filterMatrix,

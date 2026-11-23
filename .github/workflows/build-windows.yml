@@ -70,9 +70,9 @@ jobs:
       - name: Create Zip Package
         shell: pwsh
         run: |
-          Compress-Archive -Path "memontra_booth/build/windows/x64/runner/Release/*" -DestinationPath "memontra-booth-windows-v2.0.0.zip" -Force
+          Compress-Archive -Path "memontra_booth/build/windows/x64/runner/Release/*" -DestinationPath "memontra-booth-windows-v2.0.1.zip" -Force
           Write-Host "Zip created successfully:"
-          Get-Item memontra-booth-windows-v2.0.0.zip | Select-Object Name, Length
+          Get-Item memontra-booth-windows-v2.0.1.zip | Select-Object Name, Length
 
       - name: Upload Windows Release Artifact
         uses: actions/upload-artifact@v4
@@ -84,9 +84,9 @@ jobs:
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.0
-          name: "Memontra Booth Windows v2.0.0 (Standalone)"
-          body: "Official standalone Windows release v2.0.0. Features: DOKU payment gateway integration, custom frame templates management, custom background styling, external camera device selector, and softfile framed photo download."
-          files: memontra-booth-windows-v2.0.0.zip
+          tag_name: v2.0.1
+          name: "Memontra Booth Windows v2.0.1 (Update QRIS & Display)"
+          body: "Official standalone Windows release v2.0.1. Updates: Official Bank Indonesia EMVCo QRIS string for all m-banking/e-wallets, anti-gepeng responsive camera & strip preview for all Windows monitor resolutions, and lightweight compressed softfile upload."
+          files: memontra-booth-windows-v2.0.1.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
