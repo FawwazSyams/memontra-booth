@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 Route::get('/', function () {
+    $indexPath = public_path('index.html');
+    if (file_exists($indexPath)) {
+        return response()->file($indexPath);
+    }
     return response()->json([
         'app' => 'Memontra Booth API',
         'status' => 'online',
@@ -15,6 +19,31 @@ Route::get('/', function () {
         'gateway' => 'doku'
     ]);
 });
+
+Route::get('/login', function () {
+    $indexPath = public_path('index.html');
+    return file_exists($indexPath) ? response()->file($indexPath) : redirect('/');
+});
+
+Route::get('/register', function () {
+    $indexPath = public_path('index.html');
+    return file_exists($indexPath) ? response()->file($indexPath) : redirect('/');
+});
+
+Route::get('/booking', function () {
+    $indexPath = public_path('index.html');
+    return file_exists($indexPath) ? response()->file($indexPath) : redirect('/');
+});
+
+Route::get('/riwayat-booking', function () {
+    $indexPath = public_path('index.html');
+    return file_exists($indexPath) ? response()->file($indexPath) : redirect('/');
+});
+
+Route::get('/admin/{any?}', function () {
+    $indexPath = public_path('index.html');
+    return file_exists($indexPath) ? response()->file($indexPath) : redirect('/');
+})->where('any', '.*');
 
 // Google Authentication
 if (class_exists(\App\Http\Controllers\Auth\GoogleController::class)) {
