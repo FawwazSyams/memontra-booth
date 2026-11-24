@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class EmailVerificationNotificationController extends Controller
 {
@@ -14,12 +15,28 @@ class EmailVerificationNotificationController extends Controller
      */
     public function store(Request $request): JsonResponse|RedirectResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended('/dashboard');
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $request->user()->sendEmailVerificationNotification();
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['status' => 'already-verified', 'message' => 'Email Anda sudah terverifikasi']);
+        }
 
-        return response()->json(['status' => 'verification-link-sent']);
+        try {
+            $user->sendEmailVerificationNotification();
+            return response()->json([
+                'status' => 'verification-link-sent',
+                'message' => 'Tautan verifikasi baru berhasil dikirim ke email Anda.'
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Resend verification mail error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal mengirim email verifikasi. Pastikan konfigurasi SMTP di server sudah benar.'
+            ], 500);
+        }
     }
 }

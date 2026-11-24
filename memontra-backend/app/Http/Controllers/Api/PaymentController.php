@@ -19,6 +19,91 @@ class PaymentController extends Controller
     }
 
     /**
+     * Simpan token DOKU dengan multi-tier fallback (Cache file + Disk file)
+     * Dijamin tidak pernah crash 500 walau database cache tidak terhubung
+     */
+    public static function storeToken(string $orderId, string $tokenId): void
+    {
+        try {
+            Cache::put("doku_token_{$orderId}", $tokenId, now()->addMinutes(30));
+        } catch (\Throwable $e) {
+            Log::warning("Cache put doku_token note: " . $e->getMessage());
+        }
+
+        try {
+            $dir = storage_path('app/doku_tokens');
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            @file_put_contents("{$dir}/{$orderId}.txt", $tokenId);
+        } catch (\Throwable $e) {}
+    }
+
+    /**
+     * Ambil token DOKU dari Cache atau fallback Disk file
+     */
+    public static function getToken(string $orderId): ?string
+    {
+        try {
+            $token = Cache::get("doku_token_{$orderId}");
+            if ($token) {
+                return $token;
+            }
+        } catch (\Throwable $e) {}
+
+        try {
+            $file = storage_path("app/doku_tokens/{$orderId}.txt");
+            if (file_exists($file)) {
+                return trim(@file_get_contents($file));
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
+    }
+
+    /**
+     * Simpan status pembayaran dengan multi-tier fallback
+     */
+    public static function storeStatus(string $orderId, string $status): void
+    {
+        try {
+            Cache::put("payment_status_{$orderId}", $status, now()->addHours(2));
+        } catch (\Throwable $e) {
+            Log::warning("Cache put payment_status note: " . $e->getMessage());
+        }
+
+        try {
+            $dir = storage_path('app/doku_status');
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            @file_put_contents("{$dir}/{$orderId}.txt", $status);
+        } catch (\Throwable $e) {}
+    }
+
+    /**
+     * Ambil status pembayaran dari Cache atau fallback Disk file
+     */
+    public static function getStatus(string $orderId): ?string
+    {
+        try {
+            $status = Cache::get("payment_status_{$orderId}");
+            if ($status) {
+                return $status;
+            }
+        } catch (\Throwable $e) {}
+
+        try {
+            $file = storage_path("app/doku_status/{$orderId}.txt");
+            if (file_exists($file)) {
+                return trim(@file_get_contents($file));
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
+    }
+
+    /**
      * Generate QRIS DOKU untuk Photobooth Windows
      */
     public function generateQris(Request $request)
@@ -31,7 +116,7 @@ class PaymentController extends Controller
         if ($result['status'] === 'success') {
             $tokenId = $result['token_id'] ?? null;
             if ($tokenId) {
-                Cache::put("doku_token_{$orderId}", $tokenId, now()->addMinutes(30));
+                self::storeToken($orderId, $tokenId);
             }
 
             return response()->json([
@@ -57,8 +142,8 @@ class PaymentController extends Controller
      */
     public function checkStatus(Request $request, $orderId)
     {
-        // 1. Cek dari Cache (diset oleh webhook callback DOKU saat pembayaran sukses)
-        $cachedStatus = Cache::get("payment_status_{$orderId}");
+        // 1. Cek dari Cache / file disk (diset oleh webhook callback DOKU)
+        $cachedStatus = self::getStatus($orderId);
         if ($cachedStatus) {
             return response()->json([
                 'gateway' => 'doku',
@@ -68,7 +153,7 @@ class PaymentController extends Controller
         }
 
         // 2. Query status ke API DOKU (bisa via token_id atau invoice_number)
-        $tokenId = $request->query('token_id') ?? Cache::get("doku_token_{$orderId}");
+        $tokenId = $request->query('token_id') ?? self::getToken($orderId);
         $dokuStatus = $this->dokuService->checkTransactionStatus($orderId, $tokenId);
 
         if ($dokuStatus) {
@@ -77,7 +162,7 @@ class PaymentController extends Controller
                 : strtolower($dokuStatus);
 
             if ($normalizedStatus === 'settlement') {
-                Cache::put("payment_status_{$orderId}", 'settlement', now()->addHours(2));
+                self::storeStatus($orderId, 'settlement');
             }
 
             return response()->json([

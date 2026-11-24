@@ -103,18 +103,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _startStatusPolling(orderId, tokenId);
         }
       } else {
-        // Fallback jika backend offline / belum terhubung
+        // Jika backend offline atau gagal response
         if (mounted) {
-          final fallbackOrderId =
-              'DOKU-${DateTime.now().millisecondsSinceEpoch}';
           setState(() {
-            _orderId = fallbackOrderId;
+            _orderId = null;
             _tokenId = null;
-            _qrisData =
-                '00020101021226600016ID.CO.DOKU.WWW01189360099900000000010215${fallbackOrderId}5204581253033605405250005802ID5914MEMONTRA BOOTH6007JAKARTA62070703A016304';
+            _qrisData = null;
             _isLoadingQris = false;
+            _qrisErrorMessage =
+                'Gagal membuat QRIS DOKU dari server. Pastikan koneksi internet aktif lalu klik Coba Lagi, atau pilih metode Tunai / Transfer Stand.';
           });
-          _startStatusPolling(fallbackOrderId);
         }
       }
     } catch (e) {

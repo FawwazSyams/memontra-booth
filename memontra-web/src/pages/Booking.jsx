@@ -40,9 +40,29 @@ const Booking = () => {
     };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [resendStatus, setResendStatus] = useState(null);
+    const [isResending, setIsResending] = useState(false);
+
+    const handleResendVerification = async () => {
+        setIsResending(true);
+        setResendStatus(null);
+        try {
+            await axios.post('/email/verification-notification');
+            setResendStatus({ type: 'success', message: 'Tautan verifikasi baru berhasil dikirim ke email Anda! Periksa inbox atau folder spam.' });
+        } catch (error) {
+            setResendStatus({ type: 'error', message: error.response?.data?.message || 'Gagal mengirim email verifikasi.' });
+        } finally {
+            setIsResending(false);
+        }
+    };
 
     const handleBookingSubmit = async (e) => {
         e.preventDefault();
+
+        if (user && !user.email_verified_at) {
+            alert('Silakan verifikasi email Anda terlebih dahulu sebelum membuat pesanan booking. Cek inbox atau folder spam email Anda, atau klik "Kirim Ulang Email" di bagian atas.');
+            return;
+        }
         setIsSubmitting(true);
 
         try {
@@ -98,6 +118,34 @@ const Booking = () => {
                         <p className="text-dark/60 mt-1">Halo, <span className="font-semibold text-primary">{user?.name || 'Klien'}</span>! Mari atur pesanan photobooth acaramu.</p>
                     </div>
                 </div>
+
+                {/* Banner Verifikasi Email */}
+                {user && !user.email_verified_at && (
+                    <div className="mb-8 p-5 bg-amber-50 border border-amber-300 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+                        <div className="flex items-start gap-3">
+                            <span className="text-2xl mt-0.5">⚠️</span>
+                            <div>
+                                <h4 className="font-bold text-amber-900 text-sm sm:text-base">Akun Anda Belum Terverifikasi</h4>
+                                <p className="text-amber-800 text-xs sm:text-sm mt-0.5 leading-relaxed">
+                                    Kami telah mengirimkan email verifikasi ke <strong className="text-amber-950 font-semibold">{user.email}</strong>. Silakan verifikasi akun untuk dapat membuat pesanan booking.
+                                </p>
+                                {resendStatus && (
+                                    <p className={`text-xs mt-2 font-semibold ${resendStatus.type === 'success' ? 'text-emerald-700' : 'text-red-600'}`}>
+                                        {resendStatus.message}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleResendVerification}
+                            disabled={isResending}
+                            className="text-xs sm:text-sm bg-amber-600 hover:bg-amber-700 text-universal font-semibold px-5 py-2.5 rounded-xl transition-all disabled:opacity-50 whitespace-nowrap self-stretch md:self-auto text-center"
+                        >
+                            {isResending ? 'Mengirim...' : 'Kirim Ulang Email'}
+                        </button>
+                    </div>
+                )}
 
                 {/* Tampilan Form Booking Utama */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

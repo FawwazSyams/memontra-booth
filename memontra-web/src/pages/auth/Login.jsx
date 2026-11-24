@@ -1,6 +1,6 @@
 // src/pages/auth/Login.jsx
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext'; // Import context yang sudah dibuat
 import Logo from '../../assets/images/logo-booth-second.png';
 
@@ -12,13 +12,26 @@ const Login = () => {
     // State untuk menangani loading dan error dari Laravel
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [infoMessage, setInfoMessage] = useState(null);
 
     // Panggil fungsi login dari AuthContext dan navigasi dari React Router
     const { login } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        if (searchParams.get('verified') === '1') {
+            setInfoMessage('Email Anda berhasil diverifikasi! Silakan login untuk melanjutkan booking.');
+        } else if (searchParams.get('error') === 'google_auth_failed') {
+            setErrors({ general: ['Autentikasi Google dibatalkan atau gagal. Silakan coba lagi.'] });
+        } else if (searchParams.get('error') === 'google_config_error') {
+            setErrors({ general: ['Konfigurasi Google OAuth di server belum aktif. Silakan masuk menggunakan email dan password.'] });
+        }
+    }, [searchParams]);
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:8000/auth/google';
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+        window.location.href = `${baseUrl}/auth/google`;
     };
 
     // Fungsi yang dijalankan saat tombol "Masuk" ditekan
@@ -53,6 +66,12 @@ const Login = () => {
                     <h2 className="text-2xl font-bold text-dark mt-4">Selamat Datang Kembali!</h2>
                     <p className="text-dark/60 text-sm mt-2">Silakan login untuk melanjutkan booking.</p>
                 </div>
+
+                {infoMessage && (
+                    <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl text-center font-medium">
+                        ✓ {infoMessage}
+                    </div>
+                )}
 
                 {errors.general && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl text-center">

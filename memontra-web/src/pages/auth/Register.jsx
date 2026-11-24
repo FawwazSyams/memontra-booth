@@ -14,12 +14,14 @@ const Register = () => {
     // State untuk status submit dan error
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isRegistered, setIsRegistered] = useState(false);
 
     const { register } = useAuth();
     const navigate = useNavigate();
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:8000/auth/google';
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+        window.location.href = `${baseUrl}/auth/google`;
     };
 
     // Fungsi saat form disubmit
@@ -38,13 +40,47 @@ const Register = () => {
         });
 
         if (success) {
-            // Jika berhasil daftar, Laravel biasanya langsung meloginkan user.
-            // Kita arahkan ke halaman booking (nanti di sana kita cek status verifikasi emailnya)
-            navigate('/');
+            // Tampilkan layar verifikasi email
+            setIsRegistered(true);
         }
 
         setIsSubmitting(false);
     };
+
+    if (isRegistered) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-primary/5 px-4 py-12 font-poppins">
+                <div className="max-w-md w-full bg-universal rounded-3xl shadow-xl p-8 border border-gray-100 text-center">
+                    <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold text-dark">Periksa Email Anda</h2>
+                    <p className="text-dark/70 text-sm mt-3 leading-relaxed">
+                        Kami telah mengirimkan tautan verifikasi ke <strong className="text-dark">{email}</strong>. Silakan klik tautan di dalam email tersebut untuk memverifikasi akun Anda.
+                    </p>
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs text-left">
+                        💡 <strong>Tips:</strong> Jika email belum muncul dalam 1-2 menit, periksa folder <strong>Spam</strong> atau <strong>Promosi</strong> di email Anda.
+                    </div>
+                    <div className="mt-6 space-y-3">
+                        <Link
+                            to="/booking"
+                            className="block w-full bg-primary text-universal font-bold py-3.5 rounded-xl shadow-md hover:bg-opacity-90 transition-all"
+                        >
+                            Lanjutkan ke Booking
+                        </Link>
+                        <Link
+                            to="/"
+                            className="block w-full border border-gray-200 text-dark/70 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-all text-sm"
+                        >
+                            Kembali ke Beranda
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-primary/5 px-4 py-12 font-poppins">

@@ -49,6 +49,14 @@ class BookingController extends Controller
     {
         Log::info('Incoming booking:', $request->all());
 
+        // Verifikasi Email Check: Wajib verifikasi email sebelum bisa booking
+        if (!$request->user()->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Silakan verifikasi email Anda terlebih dahulu sebelum membuat pesanan booking. Cek inbox atau folder spam email Anda.',
+                'must_verify_email' => true,
+            ], 403);
+        }
+
         // 1. Validasi data yang masuk
         $validated = $request->validate([
             'package' => 'required|string',
